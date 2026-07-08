@@ -11,11 +11,16 @@ Glimpse is a **language learning / vocabulary app** — fast word capture, vocab
 
 ## Current stage
 
-**Stage 1 — Product Discovery** (revised v2, personal-use-first — pending re-accept)
-**Stage 3 — User Flows** (skeleton drafted early, ahead of PRD, to pressure-test open decisions — not final)
-**Stage 2 — Product Requirements** (still needs to be written; must resolve Open decisions 1–4 from discovery)
+**Stage 1 — Product Discovery** (revised v2, personal-use-first — accepted, DoD complete)
+**Stage 2 — Product Requirements** (`docs/prd.md` — accepted, DoD complete)
+**Stage 3 — User Flows** (`docs/user-flows.md` — accepted)
+**Stage 4 — Information Architecture** (`docs/information-architecture.md` — accepted; no tabs, single nav stack, Study per-folder/per-search only)
+**Stage 5 — Domain Modeling** (`docs/domain-modeling.md` — accepted, DoD complete)
+**Stage 6 — Feature Breakdown** (`docs/feature-breakdown.md` — accepted, DoD complete)
+**Stage 7 — Technical Design** (`docs/technical-design.md` — accepted, DoD complete)
+**Stage 8 — Architecture** (drafted in `docs/architecture.md` — pending owner review)
 
-Process position: Discovery revised → User Flows skeleton drafted → PRD still pending (must close open decisions) → finalize User Flows.
+Process position: Discovery accepted → PRD accepted → User Flows accepted → Information Architecture accepted → Domain Modeling accepted → Feature Breakdown accepted → Technical Design accepted → Architecture drafted (pending review) → next up: Increment Planning (Stage 9).
 
 ## Process (do not skip stages)
 
@@ -42,21 +47,28 @@ Built for the owner's **own personal use first** — not a hypothetical generic 
 
 ## Locked decisions
 
-- **Hero**: Frictionless vocab loop — capture (0–1 taps) → vocabulary → study cards → AI.
-- **Dropped**: Daily Discovery, “why today,” resurfacing archive, discovery widget, push-for-resurfacing. (**Not the same as** shuffle/random study mode — see v1 scope below.)
-- **AI (offline)**: Similar words from the user's own vocabulary (duplicates allowed, no dedup) + unified search (keyword + meaning combined, one search box) — no network required.
-- **AI (examples)**: Example sentences generated **on-demand** (button) for a saved word, then saved to the card; graceful fallback when unavailable — offline features still work.
-- **AI (similar phrases)**: On-demand button on a card generates similar words/phrases (including idioms/collocations) beyond the user's own vocabulary, which the user can then choose to save — separate mechanism from offline similar-words, may require network.
+- **Hero**: Frictionless vocab loop — capture (0–1 taps) → organize → find → study, with AI as a study aid.
+- **Dropped**: Daily Discovery, "why today," resurfacing archive, discovery widget, push-for-resurfacing. (**Not the same as** shuffle/random study mode, which is in scope.)
+- **Card model**: an item is just **word/phrase + translation**, one field. **`sourceLanguage` auto-detected, optionally set manually at capture when UI allows, or `null` if detection fails and user skips manual pick — not editable after save except one Unsorted resolve.** **`null` → Unsorted.** **`targetLanguage` editable on card.** Folder selection prefills source/target (source locked after prefill).
+- **Unsorted resolve (once per card):** Unsorted-only UI — **Move to language folder** (sets `sourceLanguage`) or **Move to custom folder** (files item; may adopt folder source or pick source if folder empty). Normal custom re-file only after resolve or when source is non-null.
+- **Translation is never generated automatically — no exceptions**, regardless of target language, not even at capture. Blank unless provided manually or generated in place via explicit on-demand action. A translation targeting the same language as the source is simply the definition/explanation — not a separate category. Same on-demand-only rule applies to examples and "discover similar phrases."
+- **Folders**: every item auto-lands in its **built-in per-language folder** plus **at most one optional custom folder** (manual assignment only in v1). **Default custom folder:** last used or manually chosen; prefilled on in-app add; auto-applied on widget/Share when language matches (`sourceLanguage` empty or equal — otherwise skipped). Custom folder: name required; languages from first item / card sync; delete cascades membership only.
+- **Language detection fallback**: **`null` source → "Unsorted"**; user may optionally pick manually at capture when UI allows; **one Unsorted resolve** may set language afterward (Unsorted-only, once per card).
+- **Discover similar (AI)**: on-demand button, same-language-only, **requires non-null `sourceLanguage`**, suggests items beyond the user's own vocabulary, user chooses what to save.
+- **Generation result presentation**: translation and discover-similar surface **multiple candidates** the user picks from; example generation is **single-result**, saved directly (no picker, deliberately kept simple). **Translation, example, and discover-similar generation require non-null `sourceLanguage`** — manual translation/example entry still allowed on `null`-source cards.
+- **Related items** (instant matching): same-language-only, **non-null `sourceLanguage` required**, works offline, over user's own vocabulary, duplicates allowed (no dedup in v1).
+- **Duplicates**: no dedup/uniqueness check in v1 (accepted limitation); source word/phrase uniqueness is a v2 candidate.
 - **Quick note widget**: Type and save a word without opening the app.
-- **Resume**: Last tab only (Vocabulary vs Study) — not scroll position or mid-deck state.
+- **No tab navigation**: single navigation stack, no `TabView`. Study is not a top-level destination — it's reached per-folder ("Study this folder") or per-search-result, never a standalone tab.
+- **Resume**: last folder viewed (or the root folder list if none) — not scroll position or mid-deck state.
 - **Capture goal**: Measurably faster than Quizlet (0–1 taps from widget or Share Extension).
-- **Folders**: reversed from earlier "Out" — folders are in v1 (see v1 scope). App auto-detects language on capture; every item lands in a folder — built-in per-language default folder if the user didn't pick one explicitly. User-created folders remain free-form (topic/theme/anything); manual vs automatic assignment into those is an open decision. Fallback behavior when language can't be detected is also open.
+- **AI generation implementation** (on-device vs cloud) is deferred to Technical Design — not a product-doc decision.
 
 ## v1 scope (locked)
 
-In: word capture, Share Extension, vocabulary list/browse, folders (easy-access organization), unified search (keyword + meaning), similar words (own vocabulary), AI-generated similar phrases (on-demand, savable), flashcard study, shuffle/random study order, on-demand example sentences, Quick note widget, resume last tab.
+In: word/phrase capture, Share Extension, Quick note widget, per-language auto-folders, one optional custom folder (manual), unified search (keyword + meaning), related items (own vocabulary), on-demand translation (any target language), on-demand discover-similar, on-demand example sentences (manual or generated), flashcard study (folder/shuffle/search-scoped, no tab), resume last folder viewed.
 
-Out: Daily Discovery / resurfacing feed (narrative, "why today", push), general link/photo archive, tags, markdown editor, graph view, multi-device sync, import/export, social, full language course, chat tutor, spaced repetition (v2), duplicate detection/merging.
+Out: Daily Discovery / resurfacing feed (narrative, "why today", push), general link/photo archive, tags, markdown editor, graph view, multi-device sync, import/export, social, full language course, chat tutor, embedded chat per card / global (v2), spaced repetition (v2), duplicate detection/merging, custom folder nesting/multi-membership, automatic custom-folder assignment, OCR capture (v2).
 
 ## Your job as Tech Lead
 
