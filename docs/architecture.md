@@ -1,6 +1,6 @@
 # Stage 8 — Architecture
 
-**Status:** Draft — module layout, repo structure, and TCA organization. Built from accepted `docs/technical-design.md` and owner decisions in this session. Drives Increment Planning (Stage 9).
+**Status:** Accepted — module layout, repo structure, and TCA organization. Built from accepted `docs/technical-design.md` and owner decisions. Drives Increment Planning (Stage 9).
 
 **Refs:** `docs/technical-design.md`, `docs/feature-breakdown.md`, `docs/domain-modeling.md`
 
@@ -17,12 +17,12 @@ Technical Design chose the stack. Architecture defines **where code lives**, **w
 | Area | Choice |
 |---|---|
 | **SPM packages** | **GlimpseCore** + **GlimpseAI** + **GlimpseFeatures** (TCA) |
-| **Package location** | `Packages/` at repo root |
+| **Package location** | `Packages/` at Glimpse repo root |
 | **App Group** | `group.<bundle-id>` (standard pattern; exact ID follows app bundle ID) |
 | **`example` storage** | **Codable transform** on `VocabItem` (`[String]` ↔ stored `Data`) |
 | **Share Extension** | **SwiftUI sheet** — pre-filled text + optional translation + Save |
 | **Related items cap** | **20** on card detail |
-| **GlimpseFeatures layout** | **One folder per screen feature** |
+| **GlimpseFeatures layout** | **One folder per screen feature** (shared SwiftUI lives here until a UI package is justified) |
 | **Navigation owner** | **`AppFeature`** — `NavigationStack` path + resume-on-launch |
 | **OpenAI retry** | **1 retry** on transient failure, then surface error to user |
 | **GlimpseCore layout** | **By concern** — `Models/`, `Store/`, `Services/`, `Clients/` |
@@ -31,6 +31,7 @@ Technical Design chose the stack. Architecture defines **where code lives**, **w
 
 ```
 Glimpse (app)     → GlimpseFeatures, GlimpseAI, GlimpseCore
+Grab (commercial) → same three packages (SPM)
 GlimpseWidget     → GlimpseCore only
 GlimpseShare      → GlimpseCore only
 GlimpseFeatures   → GlimpseAI, GlimpseCore
@@ -38,7 +39,7 @@ GlimpseAI         → GlimpseCore (minimal — types for generation context only
 GlimpseCore       → (no GlimpseAI, no TCA)
 ```
 
-**Rationale:** Widget/Share stay lightweight. **macOS later** reuses `GlimpseCore` + `GlimpseAI` + `GlimpseFeatures`; only platform app targets differ.
+**Rationale:** Widget/Share stay lightweight. **Grab** consumes these packages from the public repo; it does not fork them. **macOS later** reuses the same packages; only platform app shells differ.
 
 ---
 
@@ -48,29 +49,9 @@ GlimpseCore       → (no GlimpseAI, no TCA)
 Glimpse/
 ├── Packages/
 │   ├── GlimpseCore/
-│   │   ├── Package.swift
-│   │   └── Sources/GlimpseCore/
-│   │       ├── Models/           # @Model types, schema
-│   │       ├── Store/            # ModelContainer factory, VocabularyStore
-│   │       ├── Services/         # LanguageDetector, SearchService, CapturePipeline
-│   │       └── Clients/          # PreferencesClient (App Group UserDefaults)
 │   ├── GlimpseAI/
-│   │   ├── Package.swift
-│   │   └── Sources/GlimpseAI/
-│   │       ├── GenerationService.swift
-│   │       ├── HybridGenerationService.swift
-│   │       ├── FoundationModelsAdapter.swift
-│   │       └── OpenAIClient.swift
 │   └── GlimpseFeatures/
-│       ├── Package.swift
-│       └── Sources/GlimpseFeatures/
-│           ├── App/              # AppFeature + root AppView
-│           ├── FolderList/
-│           ├── FolderDetail/
-│           ├── CardDetail/
-│           ├── Capture/
-│           └── Study/
-├── Glimpse/                      # iOS app target — @main, entitlements, assets
+├── Glimpse/                      # iOS app — @main
 ├── GlimpseWidget/
 ├── GlimpseShare/
 ├── GlimpseTests/
@@ -288,5 +269,5 @@ sequenceDiagram
 - [x] Extension targets scoped to GlimpseCore.
 - [x] Entitlements checklist stated.
 - [x] Technical Design open items resolved or carried forward explicitly.
-- [ ] Owner review — confirm layout or flag changes.
-- [ ] Once accepted, proceed to Stage 9 — Increment Planning.
+- [x] Owner review — accepted.
+- [x] Proceed to Stage 9 — Increment Planning.

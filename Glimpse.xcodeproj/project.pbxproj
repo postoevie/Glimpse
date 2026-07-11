@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B10000000000000000000011 /* GlimpseCore in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000021 /* GlimpseCore */; };
+		B10000000000000000000012 /* GlimpseAI in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000022 /* GlimpseAI */; };
+		B10000000000000000000014 /* GlimpseFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000024 /* GlimpseFeatures */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		522A956C2FF795D900C82AB3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +58,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B10000000000000000000011 /* GlimpseCore in Frameworks */,
+				B10000000000000000000012 /* GlimpseAI in Frameworks */,
+				B10000000000000000000014 /* GlimpseFeatures in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +121,9 @@
 			);
 			name = Glimpse;
 			packageProductDependencies = (
+				B10000000000000000000021 /* GlimpseCore */,
+				B10000000000000000000022 /* GlimpseAI */,
+				B10000000000000000000024 /* GlimpseFeatures */,
 			);
 			productName = Glimpse;
 			productReference = 522A955C2FF795D700C82AB3 /* Glimpse.app */;
@@ -195,6 +207,11 @@
 			);
 			mainGroup = 522A95532FF795D700C82AB3;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B10000000000000000000001 /* XCLocalSwiftPackageReference "Packages/GlimpseCore" */,
+				B10000000000000000000002 /* XCLocalSwiftPackageReference "Packages/GlimpseAI" */,
+				B10000000000000000000004 /* XCLocalSwiftPackageReference "Packages/GlimpseFeatures" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 522A955D2FF795D700C82AB3 /* Products */;
 			projectDirPath = "";
@@ -395,6 +412,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Glimpse/Glimpse.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KKJP7578Q2;
@@ -427,6 +445,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Glimpse/Glimpse.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KKJP7578Q2;
@@ -578,6 +597,39 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B10000000000000000000001 /* XCLocalSwiftPackageReference "Packages/GlimpseCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/GlimpseCore;
+		};
+		B10000000000000000000002 /* XCLocalSwiftPackageReference "Packages/GlimpseAI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/GlimpseAI;
+		};
+		B10000000000000000000004 /* XCLocalSwiftPackageReference "Packages/GlimpseFeatures" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/GlimpseFeatures;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B10000000000000000000021 /* GlimpseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GlimpseCore;
+			package = B10000000000000000000001 /* XCLocalSwiftPackageReference "Packages/GlimpseCore" */;
+		};
+		B10000000000000000000022 /* GlimpseAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GlimpseAI;
+			package = B10000000000000000000002 /* XCLocalSwiftPackageReference "Packages/GlimpseAI" */;
+		};
+		B10000000000000000000024 /* GlimpseFeatures */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GlimpseFeatures;
+			package = B10000000000000000000004 /* XCLocalSwiftPackageReference "Packages/GlimpseFeatures" */;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 522A95542FF795D700C82AB3 /* Project object */;
 }

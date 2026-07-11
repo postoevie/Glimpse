@@ -47,7 +47,7 @@ Feature Breakdown names *what* to ship. Technical Design locks *how* — framewo
 | **GlimpseShare** | Share Extension |
 | **GlimpseCore** (SPM) | SwiftData models, store, domain services, language detection, search |
 | **GlimpseAI** (SPM) | Generation protocols, Foundation Models adapter, OpenAI client |
-| **GlimpseFeatures** (SPM) | TCA features + shared SwiftUI views |
+| **GlimpseFeatures** (SPM) | TCA screen features |
 | **GlimpseTests** / **GlimpseUITests** | Swift Testing + UI tests |
 
 All vocabulary-writing targets link **GlimpseCore** and use the **same App Group** identifier.

@@ -18,9 +18,11 @@ Glimpse is a **language learning / vocabulary app** — fast word capture, vocab
 **Stage 5 — Domain Modeling** (`docs/domain-modeling.md` — accepted, DoD complete)
 **Stage 6 — Feature Breakdown** (`docs/feature-breakdown.md` — accepted, DoD complete)
 **Stage 7 — Technical Design** (`docs/technical-design.md` — accepted, DoD complete)
-**Stage 8 — Architecture** (drafted in `docs/architecture.md` — pending owner review)
+**Stage 8 — Architecture** (`docs/architecture.md` — accepted, DoD complete)
+**Stage 9 — Increment Planning** (`docs/increment-planning.md` — accepted, DoD complete)
+**Stage 10 — Development** (in progress — **I0** scaffold implemented; verify build, then **I1**)
 
-Process position: Discovery accepted → PRD accepted → User Flows accepted → Information Architecture accepted → Domain Modeling accepted → Feature Breakdown accepted → Technical Design accepted → Architecture drafted (pending review) → next up: Increment Planning (Stage 9).
+Process position: Discovery → PRD → User Flows → IA → Domain → Feature Breakdown → Technical Design → Architecture → Increment Planning — all accepted. Development: **I0** done in tree; next **I1** after owner verifies launch.
 
 ## Process (do not skip stages)
 
