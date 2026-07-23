@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "GlimpseAI",
-    platforms: [.iOS("26.0")],
+    platforms: [.iOS("26.0"), .macOS("26.0")],
     products: [
         .library(name: "GlimpseAI", targets: ["GlimpseAI"]),
     ],

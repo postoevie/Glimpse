@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "GlimpseFeatures",
-    platforms: [.iOS("26.0")],
+    platforms: [.iOS("26.0"), .macOS("26.0")],
     products: [
         .library(name: "GlimpseFeatures", targets: ["GlimpseFeatures"]),
     ],
@@ -21,6 +21,17 @@ let package = Package(
             dependencies: [
                 "GlimpseCore",
                 "GlimpseAI",
+                .product(
+                    name: "ComposableArchitecture",
+                    package: "swift-composable-architecture"
+                ),
+            ]
+        ),
+        .testTarget(
+            name: "GlimpseFeaturesTests",
+            dependencies: [
+                "GlimpseFeatures",
+                "GlimpseCore",
                 .product(
                     name: "ComposableArchitecture",
                     package: "swift-composable-architecture"

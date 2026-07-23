@@ -30,9 +30,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		522A8C6330127932004FE642 /* SwiftRefactorExtension.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = SwiftRefactorExtension.xcodeproj; sourceTree = "<group>"; };
 		522A955C2FF795D700C82AB3 /* Glimpse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Glimpse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		522A956B2FF795D900C82AB3 /* GlimpseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlimpseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		522A95752FF795D900C82AB3 /* GlimpseUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlimpseUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		522AC94F30127932004FE642 /* CaseStudies.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = CaseStudies.xcodeproj; sourceTree = "<group>"; };
+		522AC9A530127932004FE642 /* Integration.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Integration.xcodeproj; sourceTree = "<group>"; };
+		522AC9AF30127932004FE642 /* Search.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Search.xcodeproj; sourceTree = "<group>"; };
+		522AC9BD30127932004FE642 /* SpeechRecognition.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = SpeechRecognition.xcodeproj; sourceTree = "<group>"; };
+		522AC9D730127932004FE642 /* SyncUps.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = SyncUps.xcodeproj; sourceTree = "<group>"; };
+		522AC9E030127932004FE642 /* TicTacToe.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TicTacToe.xcodeproj; sourceTree = "<group>"; };
+		522AC9EA30127932004FE642 /* Todos.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Todos.xcodeproj; sourceTree = "<group>"; };
+		522AC9FE30127932004FE642 /* VoiceMemos.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = VoiceMemos.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -97,6 +106,69 @@
 				522A955C2FF795D700C82AB3 /* Glimpse.app */,
 				522A956B2FF795D900C82AB3 /* GlimpseTests.xctest */,
 				522A95752FF795D900C82AB3 /* GlimpseUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD25B30127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD25D30127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD25F30127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD26130127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD26330127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD26530127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD26730127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD26930127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		522AD26B30127932004FE642 /* Products */ = {
+			isa = PBXGroup;
+			children = (
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -215,6 +287,44 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 522A955D2FF795D700C82AB3 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 522AD26130127932004FE642 /* Products */;
+					ProjectRef = 522AC94F30127932004FE642 /* CaseStudies.xcodeproj */;
+				},
+				{
+					ProductGroup = 522AD26330127932004FE642 /* Products */;
+					ProjectRef = 522AC9A530127932004FE642 /* Integration.xcodeproj */;
+				},
+				{
+					ProductGroup = 522AD25B30127932004FE642 /* Products */;
+					ProjectRef = 522AC9AF30127932004FE642 /* Search.xcodeproj */;
+				},
+				{
+					ProductGroup = 522AD26930127932004FE642 /* Products */;
+					ProjectRef = 522AC9BD30127932004FE642 /* SpeechRecognition.xcodeproj */;
+				},
+				{
+					ProductGroup = 522AD25F30127932004FE642 /* Products */;
+					ProjectRef = 522A8C6330127932004FE642 /* SwiftRefactorExtension.xcodeproj */;
+				},
+				{
+					ProductGroup = 522AD26530127932004FE642 /* Products */;
+					ProjectRef = 522AC9D730127932004FE642 /* SyncUps.xcodeproj */;
+				},
+				{
+					ProductGroup = 522AD26B30127932004FE642 /* Products */;
+					ProjectRef = 522AC9E030127932004FE642 /* TicTacToe.xcodeproj */;
+				},
+				{
+					ProductGroup = 522AD26730127932004FE642 /* Products */;
+					ProjectRef = 522AC9EA30127932004FE642 /* Todos.xcodeproj */;
+				},
+				{
+					ProductGroup = 522AD25D30127932004FE642 /* Products */;
+					ProjectRef = 522AC9FE30127932004FE642 /* VoiceMemos.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				522A955B2FF795D700C82AB3 /* Glimpse */,
@@ -616,18 +726,18 @@
 /* Begin XCSwiftPackageProductDependency section */
 		B10000000000000000000021 /* GlimpseCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = GlimpseCore;
 			package = B10000000000000000000001 /* XCLocalSwiftPackageReference "Packages/GlimpseCore" */;
+			productName = GlimpseCore;
 		};
 		B10000000000000000000022 /* GlimpseAI */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = GlimpseAI;
 			package = B10000000000000000000002 /* XCLocalSwiftPackageReference "Packages/GlimpseAI" */;
+			productName = GlimpseAI;
 		};
 		B10000000000000000000024 /* GlimpseFeatures */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = GlimpseFeatures;
 			package = B10000000000000000000004 /* XCLocalSwiftPackageReference "Packages/GlimpseFeatures" */;
+			productName = GlimpseFeatures;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

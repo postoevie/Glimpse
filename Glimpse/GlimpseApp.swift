@@ -1,16 +1,32 @@
 import SwiftUI
+import GlimpseCore
 import GlimpseFeatures
 import ComposableArchitecture
+import SwiftData
 
 @main
 struct GlimpseApp: App {
+    private static let modelContainer: ModelContainer = {
+        do {
+            return try GLIModelContainerFactory.makeLive(groupIdentifier: GLIAppGroup.identifier)
+        } catch {
+            fatalError("Failed to create ModelContainer: \(error)")
+        }
+    }()
+
+    static let store = Store(initialState: GLIAppFeature.State()) {
+        #if DEBUG
+        GLIAppFeature()._printChanges()
+        #else
+        GLIAppFeature()
+        #endif
+    } withDependencies: {
+        $0.wordPairs = .live(container: modelContainer)
+    }
+
     var body: some Scene {
         WindowGroup {
-            AppView(
-                store: Store(initialState: AppFeature.State()) {
-                    AppFeature()
-                }
-            )
+            GLIAppView(store: Self.store)
         }
     }
 }

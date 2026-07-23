@@ -31,7 +31,6 @@ Technical Design chose the stack. Architecture defines **where code lives**, **w
 
 ```
 Glimpse (app)     → GlimpseFeatures, GlimpseAI, GlimpseCore
-Grab (commercial) → same three packages (SPM)
 GlimpseWidget     → GlimpseCore only
 GlimpseShare      → GlimpseCore only
 GlimpseFeatures   → GlimpseAI, GlimpseCore
@@ -39,7 +38,7 @@ GlimpseAI         → GlimpseCore (minimal — types for generation context only
 GlimpseCore       → (no GlimpseAI, no TCA)
 ```
 
-**Rationale:** Widget/Share stay lightweight. **Grab** consumes these packages from the public repo; it does not fork them. **macOS later** reuses the same packages; only platform app shells differ.
+**Rationale:** Widget/Share stay lightweight. **macOS later** reuses the same packages; only platform app shells differ.
 
 ---
 
