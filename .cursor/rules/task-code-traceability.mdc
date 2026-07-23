@@ -1,0 +1,22 @@
+---
+description: Light task↔code traceability — impl-plan Code list + one-line feature breadcrumbs. Use when closing a planning task, adding feature files, or linking code to docs/planning.
+globs: Packages/GlimpseFeatures/**/*.swift,Glimpse/**/*.swift,docs/planning/**/*.md
+alwaysApply: false
+---
+
+# Task ↔ code traceability (light)
+
+Canonical detail: `docs/development-workflow.md` (§ Close — traceability) when that doc exists.
+
+## Rules
+
+1. **Forward (source of truth):** On task close, add a `## Code` section to `*-implementation.md` listing the slice’s main files/types.
+2. **Reverse (optional breadcrumb):** One comment at the top of each **feature root** only (TCA `@Reducer` / main SwiftUI entry), not helpers, models, clients, or tests:
+
+```swift
+// Task: I1-T1 — docs/planning/l1-capture/I1-T1-add-word/
+```
+
+3. **Multi-task file:** Prefer origin task; or list ids briefly (`I1-T1 (origin), I1-T3`).
+4. **When:** On close — not mid-WIP.
+5. **Skip:** Per-method IDs, generated maps, CI that fails on missing refs, comments on every touched file.

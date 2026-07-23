@@ -1,0 +1,34 @@
+---
+description: When testing local SPM packages, ask whether to clean .build/.swiftpm artifacts so Xcode app projects are not confused by duplicate package graphs.
+globs: Packages/**/Package.swift,**/Packages/**/*.swift
+alwaysApply: false
+---
+
+# Package test hygiene (SPM artifacts)
+
+Local packages (`GlimpseCore`, `GlimpseAI`, `GlimpseFeatures`) may be built/tested **separately** from the app (`swift test`, `xcodebuild test` from the package directory). That creates generated folders:
+
+- `.build/` — compile cache, checkouts, index
+- `.swiftpm/` — SPM/Xcode package metadata
+
+These are **not** source. Leaving them while opening `Glimpse.xcodeproj` (which also links the same packages) can confuse SPM (e.g. `found multiple top-level packages named '…'`).
+
+## Agent rule (required)
+
+When the user asks to **build or test a local package** (or you are about to run package-level tests):
+
+1. You **may** run package tests — that is supported and expected.
+2. **Before or after** the run, **ask the owner** (once per session unless they already answered):
+
+   > Clean package build artifacts (`.build` / `.swiftpm` under the package) so the app Xcode project keeps a single SPM graph?
+
+3. If they say **yes** — delete those directories under the package(s) you touched (and optional package-level `Package.resolved` only if the owner agrees; prefer keeping the app workspace `Package.resolved`).
+4. If they say **no** — leave artifacts; remind them not to open the app project until cleaned, or accept the risk of resolve errors.
+5. Do **not** silently delete without asking (unless the owner already gave a standing “always clean after package tests” preference in this chat).
+
+## Prefer
+
+- App day-to-day: open only `Glimpse.xcodeproj`.
+- Package day-to-day: test the package; then clean if switching back to the app project.
+
+Canonical detail: `docs/testing-profiling.md` § Package tests & SPM artifacts.
