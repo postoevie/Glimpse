@@ -22,6 +22,8 @@ struct GlimpseApp: App {
         #endif
     } withDependencies: {
         $0.wordPairs = .live(container: modelContainer)
+        $0.languageFolders = .live(container: modelContainer)
+        $0.languageDetector = .live
     }
 
     var body: some Scene {

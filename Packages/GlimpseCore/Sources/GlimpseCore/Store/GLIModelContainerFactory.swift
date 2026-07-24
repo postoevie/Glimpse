@@ -3,7 +3,10 @@ import SwiftData
 
 public enum GLIModelContainerFactory {
     public static var schema: Schema {
-        Schema([GLIWordPairEntity.self])
+        Schema([
+            GLIWordPairEntity.self,
+            GLILanguageFolderEntity.self,
+        ])
     }
 
     /// Persistent store in the App Group (shared with widget / Share later).

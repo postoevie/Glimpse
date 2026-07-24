@@ -73,3 +73,13 @@ Goal: fewer taps than Quizlet (target 0–1 from widget or share).
 ## Demo scenario (90 sec)
 
 See a phrase elsewhere → capture in 1 tap → it lands in a folder automatically → find it again via search → open the card, see its translation and related items → discover and save a similar phrase → generate an example sentence. *(Extra: open study mode, shuffled within that folder, flip cards.)*
+
+## License
+
+Glimpse is released under the [MIT License](LICENSE).
+
+## Acknowledgments
+
+Some Cursor agent skills under `.cursor/skills/` were adapted from
+[claude-swift-engineering](https://github.com/johnrogers/claude-swift-engineering).
+See [`.cursor/skills/THIRD_PARTY_NOTICES.md`](.cursor/skills/THIRD_PARTY_NOTICES.md).

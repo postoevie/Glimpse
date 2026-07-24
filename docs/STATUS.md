@@ -10,10 +10,10 @@
 |---|---|
 | **Process stage** | 10 — Development |
 | **Active increment** | I1 — Capture → folder → card |
-| **Active task** | I1-T2 — Language folders + placement (next) |
-| **Task AC** | I1-T1 promoted into packages — owner verify |
-| **Impl plan** | I1-T1 landed — code + tests in packages; manual verify open |
-| **Next gate** | Owner verify T1 (build/run); then decompose/implement I1-T2 |
+| **Active task** | I1-T2 — Language folders + placement (**code done**) |
+| **Task AC** | Implementation done; product AC pending owner verify |
+| **Impl plan** | Steps 1–4 + 6 ✓ — code + package tests |
+| **Next gate** | Manual verify I1-T2 AC; then close → I1-T3 |
 
 ---
 
@@ -61,8 +61,8 @@ Milestone: offline demo = I0–I5 complete.
 
 | Task | Product file | Status |
 |---|---|---|
-| T1 Add word + persist | `I1-T1-add-word/I1-T1-add-word.md` | **Done in packages** (owner verify) |
-| T2 Language folders + placement | `I1-T2-language-folders/I1-T2-language-folders.md` | Ready (not started) |
+| T1 Add word + persist | `I1-T1-add-word/I1-T1-add-word.md` | **Verified** |
+| T2 Language folders + placement | `I1-T2-language-folders/I1-T2-language-folders.md` | **Code done** (owner verify) |
 | T3 Folder word list | `I1-T3-folder-word-list/I1-T3-folder-word-list.md` | Ready (not started) |
 | T4 Word card | `I1-T4-word-card/I1-T4-word-card.md` | Ready (not started) |
 | T5 Card edit + delete | `I1-T5-card-edit-delete/I1-T5-card-edit-delete.md` | Ready (not started) |

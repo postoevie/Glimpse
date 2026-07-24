@@ -6,13 +6,13 @@ import Testing
 @Suite("GLIWordPairsClient")
 struct GLIWordPairsClientTests {
 
-    @Test("save then fetchAll returns the stored pair")
-    func saveThenFetchAll() async throws {
+    @Test("save then fetchWordPairs returns the stored pair")
+    func saveThenFetchWordPairs() async throws {
         let client = try GLIWordPairsClient.inMemory()
         let pair = GLIWordPair(word: "hola", translation: "hello")
 
         try await client.save(pair)
-        let loaded = try await client.fetchAll()
+        let loaded = try await client.fetchWordPairs()
 
         #expect(loaded.count == 1)
         #expect(loaded[0].id == pair.id)
@@ -30,7 +30,7 @@ struct GLIWordPairsClientTests {
 
         try await client.save(first)
         try await client.save(second)
-        let loaded = try await client.fetchAll()
+        let loaded = try await client.fetchWordPairs()
 
         #expect(loaded.count == 2)
         let ids = Set(loaded.map(\.id))
@@ -41,21 +41,21 @@ struct GLIWordPairsClientTests {
     @Test("word-only pair persists with empty translation")
     func wordOnlyEmptyTranslation() async throws {
         let container = try GLIModelContainerFactory.makeInMemory()
-        let actor = GLIWordPairsModelActor(modelContainer: container)
+        let actor = GLIModelActor(modelContainer: container)
         let pair = GLIWordPair(word: "merci", translation: "")
 
-        try await actor.save(pair)
-        let loaded = try await actor.fetchAll()
+        try await actor.saveWordPair(pair)
+        let loaded = try await actor.fetchWordPairs()
 
         #expect(loaded.count == 1)
         #expect(loaded[0].word == "merci")
         #expect(loaded[0].translation == "")
     }
 
-    @Test("fetchAll on empty store returns empty array")
-    func fetchAllEmpty() async throws {
+    @Test("fetchWordPairs on empty store returns empty array")
+    func fetchWordPairsEmpty() async throws {
         let client = try GLIWordPairsClient.inMemory()
-        let loaded = try await client.fetchAll()
+        let loaded = try await client.fetchWordPairs()
         #expect(loaded.isEmpty)
     }
 }

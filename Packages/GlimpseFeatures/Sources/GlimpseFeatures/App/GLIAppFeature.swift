@@ -11,30 +11,30 @@ public struct GLIAppFeature {
 
     @ObservableState
     public struct State: Equatable {
-        public var wordsFolder = GLIWordsFolderFeature.State()
+        public var languageFolders = GLILanguageFoldersFeature.State()
 
-        public init(wordsFolder: GLIWordsFolderFeature.State = GLIWordsFolderFeature.State()) {
-            self.wordsFolder = wordsFolder
+        public init(languageFolders: GLILanguageFoldersFeature.State = GLILanguageFoldersFeature.State()) {
+            self.languageFolders = languageFolders
         }
     }
 
     @CasePathable
     public enum Action {
         case onAppear
-        case wordsFolder(GLIWordsFolderFeature.Action)
+        case languageFolders(GLILanguageFoldersFeature.Action)
     }
 
     public init() {}
 
     public var body: some Reducer<State, Action> {
-        Scope(state: \.wordsFolder, action: \.wordsFolder) {
-            GLIWordsFolderFeature()
+        Scope(state: \.languageFolders, action: \.languageFolders) {
+            GLILanguageFoldersFeature()
         }
         Reduce { _, action in
             switch action {
             case .onAppear:
                 return .none
-            case .wordsFolder:
+            case .languageFolders:
                 return .none
             }
         }

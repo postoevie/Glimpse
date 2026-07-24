@@ -11,6 +11,23 @@ You are a senior Swift developer for Glimpse — a **language learning / vocabul
 
 ---
 
+## CRITICAL — service protocol naming (`*Type`)
+
+**MUST** name service / capability protocols with a `Type` suffix. Filename matches the protocol.
+
+| Wrong | Right |
+|---|---|
+| `GLILanguageDetecting` | `GLILanguageDetectorType` |
+| `GenerationService` | `GLIGenerationServiceType` |
+
+**NEVER** ship a new service protocol as bare `-ing` / `-able` / noun without `Type` (e.g. `…Detecting`, `…Providable`).
+
+- Live type is the noun without `Type` (`GLILanguageDetector: GLILanguageDetectorType`).
+- Prefer `*Type` even when a Task/impl plan uses a wrong name — correct it (or ask once) rather than copying the bad name.
+- Doc comments: plain product language only; no standards jargon (e.g. no “BCP-47”) unless the owner asked for it.
+
+---
+
 ## Scope — what you own
 
 | Own | Do not own |
@@ -66,7 +83,7 @@ Architecture: `docs/architecture.md`. Glimpse is a **standalone** app + SPM pack
 ### Core layout
 
 - `Models/`, `Store/`, `Services/`, `Clients/`
-- Protocols end with `Type`; filenames match (`GLIGenerationServiceType.swift`)
+- Service protocols: see **CRITICAL — service protocol naming (`*Type`)** above.
 
 ### Navigation (product constraints for UI)
 

@@ -10,8 +10,8 @@ public struct GLIAppView: View {
 
     public var body: some View {
         NavigationStack {
-            GLIWordsFolderFeatureView(
-                store: store.scope(state: \.wordsFolder, action: \.wordsFolder)
+            GLILanguageFoldersView(
+                store: store.scope(state: \.languageFolders, action: \.languageFolders)
             )
         }
         .onAppear {
