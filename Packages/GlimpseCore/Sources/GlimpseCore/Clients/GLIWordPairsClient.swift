@@ -3,15 +3,18 @@ import SwiftData
 
 public struct GLIWordPairsClient: Sendable {
     public var fetchWordPairs: @Sendable () async throws -> [GLIWordPair]
+    public var fetchWordPairsInFolder: @Sendable (UUID) async throws -> [GLIWordPair]
     public var save: @Sendable (GLIWordPair) async throws -> Void
     public var changes: @Sendable () -> AsyncStream<Void>
 
     public init(
         fetchWordPairs: @escaping @Sendable () async throws -> [GLIWordPair],
+        fetchWordPairsInFolder: @escaping @Sendable (UUID) async throws -> [GLIWordPair] = { _ in [] },
         save: @escaping @Sendable (GLIWordPair) async throws -> Void,
         changes: @escaping @Sendable () -> AsyncStream<Void> = { AsyncStream { $0.finish() } }
     ) {
         self.fetchWordPairs = fetchWordPairs
+        self.fetchWordPairsInFolder = fetchWordPairsInFolder
         self.save = save
         self.changes = changes
     }
@@ -22,6 +25,9 @@ extension GLIWordPairsClient {
         let actor = GLIModelActor(modelContainer: container)
         return GLIWordPairsClient(
             fetchWordPairs: { try await actor.fetchWordPairs() },
+            fetchWordPairsInFolder: { folderID in
+                try await actor.fetchWordPairs(inFolderID: folderID)
+            },
             save: { pair in try await actor.saveWordPair(pair) },
             changes: {
                 AsyncStream { continuation in

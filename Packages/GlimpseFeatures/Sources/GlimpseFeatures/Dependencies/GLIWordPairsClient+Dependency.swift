@@ -7,6 +7,7 @@ extension GLIWordPairsClient: DependencyKey {
         // Apps must inject a real client via withDependencies (see app entry).
         GLIWordPairsClient(
             fetchWordPairs: unimplemented("GLIWordPairsClient.fetchWordPairs"),
+            fetchWordPairsInFolder: unimplemented("GLIWordPairsClient.fetchWordPairsInFolder"),
             save: unimplemented("GLIWordPairsClient.save"),
             changes: { AsyncStream { $0.finish() } }
         )

@@ -115,7 +115,7 @@ flowchart LR
 **Acceptance criteria:**
 - [ ] No `TabView` / tab bar in v1.
 - [ ] Root = folder list; folder detail, card detail, study deck pushed on stack.
-- [ ] Exactly one in-app capture entry (root add action).
+- [ ] One in-app capture sheet; entry from root and folder detail (folder prefills source/target when known).
 - [ ] Mid-study push to card detail preserves deck session for current app session only.
 
 **Depends on:** — (shell can ship with first screen)
@@ -148,9 +148,9 @@ flowchart LR
 
 | | |
 |---|---|
-| **Surfaces** | Root add action → capture sheet (IA §Root) |
+| **Surfaces** | Root add action → capture sheet; folder detail Add → same sheet (IA §Root, §Folder detail) |
 | **Domain** | Item create; default custom folder pref; folder → pending target/source prefill |
-| **Refs** | PRD §1; Flow 1; IA §Root |
+| **Refs** | PRD §1; Flow 1; IA §Root, §Folder detail |
 
 **Acceptance criteria:**
 - [ ] `text` required; translation optional; example starts blank.
@@ -158,6 +158,7 @@ flowchart LR
 - [ ] Target language defaults to source when non-null; editable before save.
 - [ ] Default custom folder prefilled when language gate matches; user can change or clear; picker filtered by pending source (including `null`).
 - [ ] Selecting custom folder prefills source/target from folder when set; source locked after prefill; target still editable before save.
+- [ ] Add from folder detail uses the same sheet; when the open folder has `sourceLanguage`, source (and default target) are prefilled and source locked; Unsorted / unlocked empty custom → same detection/manual rules as root.
 - [ ] Save is fire-and-forget — no confirmation step; item appears in language folder (+ custom if chosen) and search index immediately.
 - [ ] Saving with a custom folder updates default custom folder preference (F2.5).
 - [ ] No dedup — same text creates a new Item.
@@ -352,8 +353,9 @@ flowchart LR
 - [ ] Tap folder → item list; tap item → card detail (F4.1).
 - [ ] Empty custom folders show empty state; still openable.
 - [ ] Default item ordering uses `createdAt` (domain).
+- [ ] Folder detail has **Add** → same capture sheet as F1.1; prefills source/target from folder when `sourceLanguage` is set.
 
-**Depends on:** X1, X3, F2.1, F2.2
+**Depends on:** X1, X3, F2.1, F2.2, F1.1
 
 ---
 

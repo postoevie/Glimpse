@@ -2,7 +2,7 @@ import ComposableArchitecture
 import GlimpseCore
 import IssueReporting
 
-// Task: I1-T1 (origin), I1-T2 — docs/planning/l1-capture/I1-T2-language-folders/
+// Task: I1-T1 (origin), I1-T2, I1-T3 — docs/planning/l1-capture/I1-T2-language-folders/
 @Reducer
 public struct GLILanguageFoldersFeature {
     @ObservableState
@@ -24,7 +24,7 @@ public struct GLILanguageFoldersFeature {
         case onAppear
         case foldersLoaded(Result<[GLILanguageFolder], Error>)
         case addButtonTapped
-        /// Reserved for I1-T3 folder detail navigation — no-op for now.
+        /// Bubbles to `GLIAppFeature`, which appends `.folderWords` onto the nav path.
         case folderTapped(GLILanguageFolder.ID)
         case addWord(PresentationAction<GLIAddWordFeature.Action>)
     }
@@ -67,7 +67,7 @@ public struct GLILanguageFoldersFeature {
                 return .none
 
             case .folderTapped:
-                // I1-T3 — open folder word list.
+                // Handled by `GLIAppFeature` (path push).
                 return .none
 
             case .addWord(.presented(.delegate(.wordAdded))):

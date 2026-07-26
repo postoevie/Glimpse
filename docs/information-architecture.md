@@ -14,13 +14,14 @@
 
 - Built-in per-language folders (auto, permanent, listed first) and custom folders (user-created, flat, no nesting) below. A persistent search bar sits above the list.
   - Search is **always global** — typing here searches the whole vocabulary regardless of which folder you're looking at, per PRD §3. It's a bar on the root screen, not a separate screen you navigate into.
-- **Capture entry point:** a single persistent "add" action on this root screen opens the in-app capture sheet — **default custom folder prefilled** when language matches; optional translation, source/target pickers, folder picker (filtered by source).
+- **Capture entry (root):** a persistent "add" action opens the in-app capture sheet — **default custom folder prefilled** when language matches; optional translation, source/target pickers, folder picker (filtered by source). The **same sheet** is also opened from folder detail (see below).
 - **"New folder"** action lives here too — **name only**; languages auto-fill from the first item added. Empty folders are valid.
 
 ## Folder detail screen
 
 - Items inside one folder (language or custom), pushed from the root.
-- Actions: **Shuffle**, **Study this folder**, and for custom folders, folder management — **rename or delete only** (`sourceLanguage` locked after first item; `targetLanguage` is optional and shown but not directly editable — it follows cards). Empty folders show an empty list.
+- Actions: **Add** (same capture sheet as root), **Shuffle**, **Study this folder**, and for custom folders, folder management — **rename or delete only** (`sourceLanguage` locked after first item; `targetLanguage` is optional and shown but not directly editable — it follows cards). Empty folders show an empty list.
+- **Add from folder detail:** opens the same in-app capture sheet with **source (and default target) prefilled from this folder** when the folder has a locked `sourceLanguage` (language folder, or custom folder after first item). **Unsorted** (and empty custom folders with no source yet): source stays unset / detectable as on root — no forced language. Save still follows Flow 1 placement rules.
 - Language folders have no management UI — they're auto-created and permanent; an item's language folder is set at capture and **may change once** via Unsorted resolve; otherwise fixed.
 
 ## Search results
@@ -55,7 +56,7 @@ Reached from folder detail, search results, or mid-study (Flow 5) — one screen
 
 - **No settings/account screen in v1** — there's nothing to configure yet (no accounts, sync, or preferences); revisit if v2 features (export, SRS) need one.
 - **No standalone search screen** — it's a bar on the root, always global, never folder-scoped.
-- **Exactly one capture entry point in-app** (root screen) — Study never duplicates it; it's a study-only destination, matching its "extra/secondary" framing from discovery.
+- **One capture sheet in-app**, opened from **root** or **folder detail** (same Flow 1 sheet; folder entry prefills source/target from the folder when known). Study never duplicates capture — it's a study-only destination.
 - **Tabs are explicitly postponed, not ruled out** — if the app grows a second top-level concern later, revisit; v1 doesn't need it.
 
 ---

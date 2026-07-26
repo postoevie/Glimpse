@@ -53,7 +53,7 @@ Delivery order is **capture first**, then organization:
 
 1. Persistable word pairs + in-app Add (word + translation only)
 2. Language detection, root language-folder list, automatic placement (incl. Unsorted)
-3. Browse words in a folder (single nav stack; root = folder list)
+3. Browse words in a folder + Add from that list (prefill source from language folder; Unsorted unforced)
 4. Word card
 5. Manual edit and delete
 6. Resume last opened folder
@@ -140,7 +140,7 @@ Delivery order is **capture first**, then organization:
    Detect or allow manual source at capture when offered; create language folders as needed; place into language folder or **Unsorted**; show **root list of language folders** (becomes app root; no tabs / X3).
 
 3. **Folder word list (F3.1)** — `I1-T3-folder-word-list/I1-T3-folder-word-list.md`  
-   Open a folder → words newest first; navigate on the single stack from root folder list.
+   Open a folder → words newest first; **Add** from that list (prefill source from language folder; Unsorted unforced); navigate on the single stack from root folder list.
 
 4. **Word card (F4.1 view)** — `I1-T4-word-card/I1-T4-word-card.md`  
    Open a word from a folder list; show word, translation, example, languages as stored.

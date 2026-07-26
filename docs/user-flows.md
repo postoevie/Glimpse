@@ -12,10 +12,10 @@ Each flow: **Entry points** → numbered **Steps** → **Outcome**. Details (fie
 
 ## Flow 1 — Capture
 
-**Entry points:** Quick note widget · Share Extension · in-app "add" — widget/Share have no folder picker; they use **default custom folder on save** when language matches (otherwise language folder only).
+**Entry points:** Quick note widget · Share Extension · in-app "add" on **root** or **folder detail** — widget/Share have no folder picker; they use **default custom folder on save** when language matches (otherwise language folder only).
 
 1. User provides text (word or phrase) — typed, pasted, or shared from another app.
-2. Optional, never required: type a translation; **source language** (auto-detected, **`null` if detection fails and user skips manual pick**, or manual when UI allows); **target language** (default: source when non-null); **custom folder prefilled with default** (last used or manually chosen) when language matches — user can change or clear. Picker shows folders empty or matching source (including `null`). **Selecting a folder prefills source and target if set — source locked after prefill; target can still change before save.** Saving with a folder updates the default.
+2. Optional, never required: type a translation; **source language** (auto-detected, **`null` if detection fails and user skips manual pick**, or manual when UI allows); **target language** (default: source when non-null); **custom folder prefilled with default** (last used or manually chosen) when language matches — user can change or clear. Picker shows folders empty or matching source (including `null`). **Selecting a folder prefills source and target if set — source locked after prefill; target can still change before save.** **Add from folder detail** prefills the same way from the open folder when it has a `sourceLanguage` (language folder or locked custom folder); Unsorted / unlocked empty custom → no forced source. Saving with a folder updates the default.
 3. On save:
    - Language folder: **`null` source → "Unsorted"**; non-null → that language's folder.
    - The card's **target language** is whatever the user left selected (after any folder prefill).
@@ -46,12 +46,12 @@ Each flow: **Entry points** → numbered **Steps** → **Outcome**. Details (fie
 
 1. User lands on whichever folder (or the root folder list, if none) was open last — no tabs, single navigation stack; not scroll position or mid-deck state.
 2. Find method:
-   - **Browse a folder** — tap a language or custom folder, see its items.
+   - **Browse a folder** — tap a language or custom folder, see its items. From folder detail, **Add** opens Flow 1 (same capture sheet; source/target prefilled from this folder when it has a `sourceLanguage`).
    - **Search** — one box, keyword or meaning combined; always searches the **entire vocabulary**, regardless of which folder is currently open.
    - **Shuffle** — randomized view of items within **one folder at a time** (language or custom) — not a global cross-folder shuffle.
 3. Tap an item → Flow 4 (Card detail).
 
-**Outcome:** User reaches a specific saved item via folder browse, global search, or folder-scoped shuffle.
+**Outcome:** User reaches a specific saved item via folder browse, global search, or folder-scoped shuffle; may also capture into the open folder’s language context via Add.
 
 ---
 

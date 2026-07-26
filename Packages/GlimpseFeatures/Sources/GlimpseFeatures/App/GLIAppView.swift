@@ -9,10 +9,15 @@ public struct GLIAppView: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        NavigationStack(path: $store.scope(state: \.path, action: \.path)) {
             GLILanguageFoldersView(
                 store: store.scope(state: \.languageFolders, action: \.languageFolders)
             )
+        } destination: { store in
+            switch store.case {
+            case let .folderWords(store):
+                GLIFolderWordsView(store: store)
+            }
         }
         .onAppear {
             store.send(.onAppear)

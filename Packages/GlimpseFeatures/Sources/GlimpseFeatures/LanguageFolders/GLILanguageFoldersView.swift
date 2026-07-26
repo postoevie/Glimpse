@@ -26,11 +26,19 @@ public struct GLILanguageFoldersView: View {
             } else {
                 List {
                     ForEach(store.folders) { folder in
-                        Text(displayName(for: folder))
-                            .font(.body)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 2)
-                            .accessibilityLabel(displayName(for: folder))
+                        Button {
+                            store.send(.folderTapped(folder.id))
+                        } label: {
+                            Text(displayName(for: folder))
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 2)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .frame(minHeight: 44)
+                        .accessibilityLabel(displayName(for: folder))
                     }
                 }
             }
