@@ -73,6 +73,7 @@ struct GLILanguageFoldersFeatureTests {
         await store.send(.onAppear)
         await store.receive(\.foldersLoaded) {
             $0.folders = IdentifiedArray(uniqueElements: [existing])
+            $0.hasCompletedInitialLoad = true
         }
         await store.finish()
     }
@@ -87,6 +88,7 @@ struct GLILanguageFoldersFeatureTests {
 
         await store.send(.foldersLoaded(.success([folder]))) {
             $0.folders = IdentifiedArray(uniqueElements: [folder])
+            $0.hasCompletedInitialLoad = true
         }
     }
 

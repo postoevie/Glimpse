@@ -8,13 +8,17 @@ public struct GLILanguageFoldersFeature {
     @ObservableState
     public struct State: Equatable {
         public var folders: IdentifiedArrayOf<GLILanguageFolder> = []
+        /// `false` until the first fetch result (success or failure); stays `true` across observation refreshes.
+        public var hasCompletedInitialLoad = false
         @Presents public var addWord: GLIAddWordFeature.State?
 
         public init(
             folders: IdentifiedArrayOf<GLILanguageFolder> = [],
+            hasCompletedInitialLoad: Bool = false,
             addWord: GLIAddWordFeature.State? = nil
         ) {
             self.folders = folders
+            self.hasCompletedInitialLoad = hasCompletedInitialLoad
             self.addWord = addWord
         }
     }
@@ -54,9 +58,11 @@ public struct GLILanguageFoldersFeature {
 
             case let .foldersLoaded(.success(folders)):
                 state.folders = IdentifiedArray(uniqueElements: folders)
+                state.hasCompletedInitialLoad = true
                 return .none
 
             case let .foldersLoaded(.failure(error)):
+                state.hasCompletedInitialLoad = true
                 reportIssue(error)
                 return .none
 

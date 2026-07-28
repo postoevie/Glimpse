@@ -11,7 +11,10 @@ public struct GLIFolderWordsView: View {
 
     public var body: some View {
         Group {
-            if store.words.isEmpty {
+            if !store.hasCompletedInitialLoad {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if store.words.isEmpty {
                 ContentUnavailableView {
                     Label("No words yet", systemImage: "text.book.closed")
                 } description: {
@@ -97,7 +100,8 @@ public struct GLIFolderWordsView: View {
                     words: [
                         GLIWordPair(word: "hola", translation: "hello", sourceLanguage: "es"),
                         GLIWordPair(word: "gracias", translation: "", sourceLanguage: "es"),
-                    ]
+                    ],
+                    hasCompletedInitialLoad: true
                 )
             ) {
                 GLIFolderWordsFeature()

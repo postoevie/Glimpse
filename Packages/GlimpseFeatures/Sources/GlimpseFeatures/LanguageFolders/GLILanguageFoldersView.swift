@@ -11,7 +11,10 @@ public struct GLILanguageFoldersView: View {
 
     public var body: some View {
         Group {
-            if store.folders.isEmpty {
+            if !store.hasCompletedInitialLoad {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if store.folders.isEmpty {
                 ContentUnavailableView {
                     Label("No folders yet", systemImage: "folder")
                 } description: {
@@ -81,7 +84,8 @@ public struct GLILanguageFoldersView: View {
                         GLILanguageFolder(languageCode: "es"),
                         GLILanguageFolder(languageCode: "fr"),
                         GLILanguageFolder(languageCode: GLILanguageFolder.unsortedCode),
-                    ]
+                    ],
+                    hasCompletedInitialLoad: true
                 )
             ) {
                 GLILanguageFoldersFeature()

@@ -11,17 +11,21 @@ public struct GLIFolderWordsFeature {
         public var id: UUID
         public var languageCode: String
         public var words: IdentifiedArrayOf<GLIWordPair>
+        /// `false` until the first fetch result (success or failure); stays `true` across observation refreshes.
+        public var hasCompletedInitialLoad = false
         @Presents public var addWord: GLIAddWordFeature.State?
 
         public init(
             id: UUID,
             languageCode: String,
             words: IdentifiedArrayOf<GLIWordPair> = [],
+            hasCompletedInitialLoad: Bool = false,
             addWord: GLIAddWordFeature.State? = nil
         ) {
             self.id = id
             self.languageCode = languageCode
             self.words = words
+            self.hasCompletedInitialLoad = hasCompletedInitialLoad
             self.addWord = addWord
         }
     }
@@ -61,9 +65,11 @@ public struct GLIFolderWordsFeature {
 
             case let .wordsLoaded(.success(words)):
                 state.words = IdentifiedArray(uniqueElements: words)
+                state.hasCompletedInitialLoad = true
                 return .none
 
             case let .wordsLoaded(.failure(error)):
+                state.hasCompletedInitialLoad = true
                 reportIssue(error)
                 return .none
 

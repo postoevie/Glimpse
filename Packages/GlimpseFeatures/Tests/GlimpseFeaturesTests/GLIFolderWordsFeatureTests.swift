@@ -59,6 +59,7 @@ struct GLIFolderWordsFeatureTests {
         await store.send(.onAppear)
         await store.receive(\.wordsLoaded) {
             $0.words = IdentifiedArray(uniqueElements: [pair])
+            $0.hasCompletedInitialLoad = true
         }
         await store.finish()
         #expect(fetchedFolderID.value == expectedFolderID)
@@ -69,7 +70,9 @@ struct GLIFolderWordsFeatureTests {
         let store = makeStore(wordPairs: finishedChangesWordPairs())
 
         await store.send(.onAppear)
-        await store.receive(\.wordsLoaded)
+        await store.receive(\.wordsLoaded) {
+            $0.hasCompletedInitialLoad = true
+        }
         await store.finish()
         #expect(store.state.words.isEmpty)
     }
