@@ -3,8 +3,8 @@ import GlimpseAI
 import GlimpseCore
 import IssueReporting
 
-// Task: I1-T3 — docs/planning/l1-capture/I1-T3-folder-word-list/
-/// Root navigation shell. Owns `NavigationStack` path (folder word list and later destinations).
+// Task: I1-T3 (origin), I1-T4 — docs/planning/l1-capture/I1-T4-word-card/
+/// Root navigation shell. Owns `NavigationStack` path (folder word list and word card).
 @Reducer
 public struct GLIAppFeature {
     /// Compile-time anchors so Core + AI stay in the Features graph (I0).
@@ -14,6 +14,7 @@ public struct GLIAppFeature {
     @Reducer
     public enum Path {
         case folderWords(GLIFolderWordsFeature)
+        case wordCard(GLIWordCardFeature)
     }
 
     @ObservableState
@@ -64,6 +65,25 @@ public struct GLIAppFeature {
                 return .none
 
             case .languageFolders:
+                return .none
+
+            case let .path(
+                .element(
+                    id: pathID,
+                    action: .folderWords(.wordTapped(wordID))
+                )
+            ):
+                guard let folderWords = state.path[id: pathID, case: \.folderWords] else {
+                    reportIssue("wordTapped from missing folder words path: \(pathID)")
+                    return .none
+                }
+                guard let wordPair = folderWords.words[id: wordID] else {
+                    reportIssue("wordTapped with id missing from folder words: \(wordID)")
+                    return .none
+                }
+                state.path.append(
+                    .wordCard(GLIWordCardFeature.State(wordPair: wordPair))
+                )
                 return .none
 
             case .path:

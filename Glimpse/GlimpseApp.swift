@@ -24,6 +24,7 @@ struct GlimpseApp: App {
         $0.wordPairs = .live(container: modelContainer)
         $0.languageFolders = .live(container: modelContainer)
         $0.languageDetector = .live
+        $0.wordExamples = .live(container: modelContainer)
     }
 
     var body: some Scene {

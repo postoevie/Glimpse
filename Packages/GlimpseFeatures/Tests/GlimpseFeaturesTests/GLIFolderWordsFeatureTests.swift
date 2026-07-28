@@ -3,6 +3,7 @@ import Foundation
 import GlimpseCore
 import GlimpseFeatures
 import IdentifiedCollections
+import IssueReporting
 import Testing
 
 @Suite("GLIFolderWordsFeature")
@@ -29,6 +30,7 @@ struct GLIFolderWordsFeatureTests {
             $0.languageDetector = GLILanguageDetectorClient(
                 detectSourceLanguage: { _ in "es" }
             )
+            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
         }
     }
 
@@ -191,4 +193,45 @@ struct GLIFolderWordsFeatureTests {
         #expect(saved.value == [draft])
         #expect(store.state.addWord == nil)
     }
+
+    @Test("wordTapped with known id does not mutate folder state")
+    func wordTappedKnownIdIsNoOp() async {
+        let pair = GLIWordPair(
+            id: pairID,
+            word: "hola",
+            translation: "hello",
+            sourceLanguage: "es"
+        )
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                id: folderID,
+                languageCode: "es",
+                words: IdentifiedArray(uniqueElements: [pair]),
+                hasCompletedInitialLoad: true
+            ),
+            wordPairs: finishedChangesWordPairs()
+        )
+
+        await store.send(.wordTapped(pairID))
+        #expect(store.state.words[id: pairID] == pair)
+    }
+
+    @Test("wordTapped with missing id reports issue and does not mutate")
+    func wordTappedMissingIdIsNoOp() async {
+        let missingID = UUID(uuidString: "00000000-0000-0000-0000-000000000099")!
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                id: folderID,
+                languageCode: "es",
+                hasCompletedInitialLoad: true
+            ),
+            wordPairs: finishedChangesWordPairs()
+        )
+
+        await withExpectedIssue("wordTapped with id missing from words list") {
+            await store.send(.wordTapped(missingID))
+        }
+        #expect(store.state.words.isEmpty)
+    }
 }
+

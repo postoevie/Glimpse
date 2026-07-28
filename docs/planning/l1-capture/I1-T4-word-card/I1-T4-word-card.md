@@ -42,12 +42,14 @@ As a user, I want to open a saved word and see its details, so I can review what
 
 ## Acceptance criteria
 
-- [ ] Tapping a word in a folder list opens its card.
-- [ ] Card shows word/phrase and translation as saved (translation may be blank).
-- [ ] Example is shown (blank if none).
-- [ ] Source language is visible (including unknown/null presentation).
-- [ ] Target language is visible as stored.
-- [ ] User can go back to the folder list.
+- [x] Tapping a word in a folder list opens its card.
+- [x] Card shows word/phrase and translation as saved (translation may be blank).
+- [x] Example is shown (blank if none).
+- [x] Source language is visible (including unknown/null presentation).
+- [x] Target language is visible as stored.
+- [x] User can go back to the folder list.
+
+**Code:** `GLIWordCardFeature` / `GLIWordCardView` on `GLIAppFeature.Path`; example via `GLIWordExampleEntity` + `GLIWordExamplesClient`. Owner verified 2026-07-28 (single-stack nav).
 
 ---
 
@@ -75,6 +77,6 @@ As a user, I want to open a saved word and see its details, so I can review what
 
 ## Definition of Done
 
-- [ ] All acceptance criteria checked
-- [ ] Edge cases verified
-- [ ] No out-of-scope behavior included
+- [x] All acceptance criteria checked
+- [x] Edge cases verified
+- [x] No out-of-scope behavior included

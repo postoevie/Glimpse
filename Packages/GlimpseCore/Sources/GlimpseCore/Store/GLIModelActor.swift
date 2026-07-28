@@ -66,6 +66,18 @@ public actor GLIModelActor {
         try modelContext.save()
     }
 
+    /// Stored example text for a word pair. Missing sidecar yields `""`.
+    public func fetchExample(for wordID: GLIWordPair.ID) throws -> String {
+        let wordID = wordID
+        var descriptor = FetchDescriptor<GLIWordExampleEntity>(
+            predicate: #Predicate { example in
+                example.wordID == wordID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.text ?? ""
+    }
+
     private func findOrCreateLanguageFolder(languageCode: String) throws -> GLILanguageFolderEntity {
         let code = languageCode
         var descriptor = FetchDescriptor<GLILanguageFolderEntity>(

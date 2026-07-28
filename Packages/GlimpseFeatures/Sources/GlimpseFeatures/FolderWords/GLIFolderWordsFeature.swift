@@ -3,7 +3,7 @@ import Foundation
 import GlimpseCore
 import IssueReporting
 
-// Task: I1-T3 — docs/planning/l1-capture/I1-T3-folder-word-list/
+// Task: I1-T3 (origin), I1-T4 — docs/planning/l1-capture/I1-T4-word-card/
 @Reducer
 public struct GLIFolderWordsFeature {
     @ObservableState
@@ -35,7 +35,7 @@ public struct GLIFolderWordsFeature {
         case onAppear
         case wordsLoaded(Result<[GLIWordPair], Error>)
         case addButtonTapped
-        /// Reserved for I1-T4 word card — no-op for now.
+        /// Bubbles to `GLIAppFeature`, which appends `.wordCard` onto the nav path.
         case wordTapped(GLIWordPair.ID)
         case addWord(PresentationAction<GLIAddWordFeature.Action>)
     }
@@ -92,8 +92,12 @@ public struct GLIFolderWordsFeature {
                 }
                 return .none
 
-            case .wordTapped:
-                // I1-T4 — open word card.
+            case let .wordTapped(id):
+                guard state.words[id: id] != nil else {
+                    reportIssue("wordTapped with id missing from words list: \(id)")
+                    return .none
+                }
+                // Handled by `GLIAppFeature` (path push).
                 return .none
 
             case .addWord(.presented(.delegate(.wordAdded))):

@@ -9,6 +9,7 @@ import Testing
 @MainActor
 struct GLIAppFeatureNavigationTests {
     private let folderID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    private let wordID = UUID(uuidString: "00000000-0000-0000-0000-000000000010")!
 
     @Test("folderTapped pushes folderWords destination with folder id and languageCode")
     func folderTappedPushesFolderWords() async {
@@ -27,6 +28,7 @@ struct GLIAppFeatureNavigationTests {
                 fetchWordPairs: { [] },
                 save: { _ in }
             )
+            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
         }
 
         await store.send(.languageFolders(.folderTapped(folderID))) {
@@ -61,6 +63,7 @@ struct GLIAppFeatureNavigationTests {
                 fetchWordPairs: { [] },
                 save: { _ in }
             )
+            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
         }
 
         await store.send(.languageFolders(.folderTapped(folderID))) {
@@ -71,6 +74,53 @@ struct GLIAppFeatureNavigationTests {
                         languageCode: GLILanguageFolder.unsortedCode
                     )
                 )
+            )
+        }
+    }
+
+    @Test("wordTapped from folderWords appends wordCard")
+    func wordTappedAppendsWordCard() async throws {
+        let pair = GLIWordPair(
+            id: wordID,
+            word: "hola",
+            translation: "hello",
+            sourceLanguage: "es"
+        )
+        let store = TestStore(
+            initialState: GLIAppFeature.State(
+                path: StackState([
+                    .folderWords(
+                        GLIFolderWordsFeature.State(
+                            id: folderID,
+                            languageCode: "es",
+                            words: IdentifiedArray(uniqueElements: [pair]),
+                            hasCompletedInitialLoad: true
+                        )
+                    )
+                ])
+            )
+        ) {
+            GLIAppFeature()
+        } withDependencies: {
+            $0.languageFolders = GLILanguageFoldersClient(fetchLanguageFolders: { [] })
+            $0.wordPairs = GLIWordPairsClient(
+                fetchWordPairs: { [] },
+                save: { _ in }
+            )
+            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+        }
+
+        let folderPathID = try #require(store.state.path.ids.first)
+        await store.send(
+            .path(
+                .element(
+                    id: folderPathID,
+                    action: .folderWords(.wordTapped(wordID))
+                )
+            )
+        ) {
+            $0.path.append(
+                .wordCard(GLIWordCardFeature.State(wordPair: pair))
             )
         }
     }

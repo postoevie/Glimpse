@@ -17,6 +17,8 @@ public struct GLIAppView: View {
             switch store.case {
             case let .folderWords(store):
                 GLIFolderWordsView(store: store)
+            case let .wordCard(store):
+                GLIWordCardView(store: store)
             }
         }
         .onAppear {
