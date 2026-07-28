@@ -29,6 +29,16 @@ struct GLIAppFeatureNavigationTests {
                 save: { _ in }
             )
             $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.cardMutations = GLICardMutationsClient(
+                update: { update in
+                    GLIWordPair(
+                        id: update.wordID,
+                        word: update.word,
+                        translation: update.translation
+                    )
+                },
+                delete: { _ in }
+            )
         }
 
         await store.send(.languageFolders(.folderTapped(folderID))) {
@@ -64,6 +74,16 @@ struct GLIAppFeatureNavigationTests {
                 save: { _ in }
             )
             $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.cardMutations = GLICardMutationsClient(
+                update: { update in
+                    GLIWordPair(
+                        id: update.wordID,
+                        word: update.word,
+                        translation: update.translation
+                    )
+                },
+                delete: { _ in }
+            )
         }
 
         await store.send(.languageFolders(.folderTapped(folderID))) {
@@ -108,6 +128,16 @@ struct GLIAppFeatureNavigationTests {
                 save: { _ in }
             )
             $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.cardMutations = GLICardMutationsClient(
+                update: { update in
+                    GLIWordPair(
+                        id: update.wordID,
+                        word: update.word,
+                        translation: update.translation
+                    )
+                },
+                delete: { _ in }
+            )
         }
 
         let folderPathID = try #require(store.state.path.ids.first)

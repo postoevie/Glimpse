@@ -44,11 +44,13 @@ As a user, I want to fix or enrich a saved word on its card and remove words I n
 
 ## Acceptance criteria
 
-- [ ] User can edit word, translation, example, and target language on the card.
-- [ ] Edits remain after leaving the card and after reopening the app.
-- [ ] User can delete a word from its card; it no longer appears in the folder.
-- [ ] Editing the word does not change source language or language folder.
-- [ ] Translation is never generated automatically while editing.
+- [x] User can edit word, translation, example, and target language on the card.
+- [x] Edits remain after leaving the card and after reopening the app.
+- [x] User can delete a word from its card; it no longer appears in the folder.
+- [x] Editing the word does not change source language or language folder.
+- [x] Translation is never generated automatically while editing.
+
+**Code:** `GLIWordCardFeature` / `GLIWordCardView`; `GLIWordCardUpdate` / `GLICardMutationsClient`; `GLIModelActor.update` / `delete`; `GLIAppFeature` reconcile on `.delegate`. Owner verified 2026-07-28.
 
 ---
 
@@ -78,6 +80,6 @@ As a user, I want to fix or enrich a saved word on its card and remove words I n
 
 ## Definition of Done
 
-- [ ] All acceptance criteria checked
-- [ ] Edge cases verified
-- [ ] No out-of-scope behavior included
+- [x] All acceptance criteria checked
+- [x] Edge cases verified
+- [x] No out-of-scope behavior included

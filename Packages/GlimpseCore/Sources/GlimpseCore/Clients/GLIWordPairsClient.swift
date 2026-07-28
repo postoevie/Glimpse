@@ -22,8 +22,11 @@ public struct GLIWordPairsClient: Sendable {
 
 extension GLIWordPairsClient {
     public static func live(container: ModelContainer) -> GLIWordPairsClient {
-        let actor = GLIModelActor(modelContainer: container)
-        return GLIWordPairsClient(
+        live(actor: GLIModelActor(modelContainer: container))
+    }
+
+    public static func live(actor: GLIModelActor) -> GLIWordPairsClient {
+        GLIWordPairsClient(
             fetchWordPairs: { try await actor.fetchWordPairs() },
             fetchWordPairsInFolder: { folderID in
                 try await actor.fetchWordPairs(inFolderID: folderID)

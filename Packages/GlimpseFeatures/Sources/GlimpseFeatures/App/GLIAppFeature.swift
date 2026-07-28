@@ -3,7 +3,7 @@ import GlimpseAI
 import GlimpseCore
 import IssueReporting
 
-// Task: I1-T3 (origin), I1-T4 — docs/planning/l1-capture/I1-T4-word-card/
+// Task: I1-T3 (origin), I1-T4, I1-T5 — docs/planning/l1-capture/I1-T5-card-edit-delete/
 /// Root navigation shell. Owns `NavigationStack` path (folder word list and word card).
 @Reducer
 public struct GLIAppFeature {
@@ -84,6 +84,55 @@ public struct GLIAppFeature {
                 state.path.append(
                     .wordCard(GLIWordCardFeature.State(wordPair: wordPair))
                 )
+                return .none
+
+            case let .path(
+                .element(
+                    id: pathID,
+                    action: .wordCard(.delegate(.updated(wordPair)))
+                )
+            ):
+                let pathIDs = Array(state.path.ids)
+                guard let cardIndex = pathIDs.firstIndex(of: pathID),
+                      cardIndex > pathIDs.startIndex else {
+                    reportIssue("updated word card missing its preceding folder path: \(pathID)")
+                    return .none
+                }
+                let folderPathID = pathIDs[pathIDs.index(before: cardIndex)]
+                guard state.path[id: folderPathID, case: \.folderWords] != nil else {
+                    reportIssue("updated word card preceded by a non-folder path: \(pathID)")
+                    return .none
+                }
+                guard state.path[id: folderPathID, case: \.folderWords]?.words[id: wordPair.id] != nil else {
+                    reportIssue("updated word missing from preceding folder snapshot: \(wordPair.id)")
+                    return .none
+                }
+                state.path[id: folderPathID, case: \.folderWords]?.words[id: wordPair.id] = wordPair
+                return .none
+
+            case let .path(
+                .element(
+                    id: pathID,
+                    action: .wordCard(.delegate(.deleted(wordID)))
+                )
+            ):
+                let pathIDs = Array(state.path.ids)
+                guard let cardIndex = pathIDs.firstIndex(of: pathID),
+                      cardIndex > pathIDs.startIndex else {
+                    reportIssue("deleted word card missing its preceding folder path: \(pathID)")
+                    return .none
+                }
+                let folderPathID = pathIDs[pathIDs.index(before: cardIndex)]
+                guard state.path[id: folderPathID, case: \.folderWords] != nil else {
+                    reportIssue("deleted word card preceded by a non-folder path: \(pathID)")
+                    return .none
+                }
+                state.path[id: folderPathID, case: \.folderWords]?.words.remove(id: wordID)
+                guard state.path.ids.last == pathID else {
+                    reportIssue("deleted word card was not the top navigation destination: \(pathID)")
+                    return .none
+                }
+                state.path.removeLast()
                 return .none
 
             case .path:

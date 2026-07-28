@@ -68,14 +68,33 @@ public actor GLIModelActor {
 
     /// Stored example text for a word pair. Missing sidecar yields `""`.
     public func fetchExample(for wordID: GLIWordPair.ID) throws -> String {
-        let wordID = wordID
-        var descriptor = FetchDescriptor<GLIWordExampleEntity>(
-            predicate: #Predicate { example in
-                example.wordID == wordID
+        try fetchExampleEntity(wordID: wordID)?.text ?? ""
+    }
+
+    /// Updates word, translation, target language, and example only.
+    /// Never changes identity, source language, language folder, or creation date.
+    public func update(_ update: GLIWordCardUpdate) throws -> GLIWordPair {
+        try modelContext.transaction {
+            let wordEntity = try fetchWordEntity(id: update.wordID)
+            wordEntity.word = update.word
+            wordEntity.translation = update.translation
+            wordEntity.targetLanguage = Self.normalizedLanguageCode(update.targetLanguage)
+            try upsertExample(wordID: update.wordID, text: update.example)
+        }
+        return Self.mapWordPair(try fetchWordEntity(id: update.wordID))
+    }
+
+    /// Deletes the word and its example sidecar. Keeps the language folder.
+    public func delete(wordID: GLIWordPair.ID) throws {
+        let wordEntity = try fetchWordEntity(id: wordID)
+        let exampleEntity = try fetchExampleEntity(wordID: wordID)
+
+        try modelContext.transaction {
+            if let exampleEntity {
+                modelContext.delete(exampleEntity)
             }
-        )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first?.text ?? ""
+            modelContext.delete(wordEntity)
+        }
     }
 
     private func findOrCreateLanguageFolder(languageCode: String) throws -> GLILanguageFolderEntity {
@@ -94,6 +113,47 @@ public actor GLIModelActor {
         let folder = GLILanguageFolderEntity(languageCode: languageCode)
         modelContext.insert(folder)
         return folder
+    }
+
+    private func fetchWordEntity(id: GLIWordPair.ID) throws -> GLIWordPairEntity {
+        let id = id
+        var descriptor = FetchDescriptor<GLIWordPairEntity>(
+            predicate: #Predicate { wordPair in
+                wordPair.id == id
+            }
+        )
+        descriptor.fetchLimit = 1
+
+        guard let entity = try modelContext.fetch(descriptor).first else {
+            throw GLICardMutationsError.wordNotFound(id)
+        }
+        return entity
+    }
+
+    private func fetchExampleEntity(wordID: GLIWordPair.ID) throws -> GLIWordExampleEntity? {
+        let wordID = wordID
+        var descriptor = FetchDescriptor<GLIWordExampleEntity>(
+            predicate: #Predicate { example in
+                example.wordID == wordID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
+    }
+
+    private func upsertExample(wordID: GLIWordPair.ID, text: String) throws {
+        if let example = try fetchExampleEntity(wordID: wordID) {
+            example.text = text
+            example.updatedAt = .now
+            return
+        }
+
+        modelContext.insert(
+            GLIWordExampleEntity(
+                wordID: wordID,
+                text: text
+            )
+        )
     }
 
     private static func mapWordPair(_ entity: GLIWordPairEntity) -> GLIWordPair {
