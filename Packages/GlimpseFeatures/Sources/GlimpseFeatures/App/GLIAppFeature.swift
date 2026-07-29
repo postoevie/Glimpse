@@ -2,8 +2,9 @@ import ComposableArchitecture
 import GlimpseAI
 import GlimpseCore
 import IssueReporting
+import Foundation
 
-// Task: I1-T3 (origin), I1-T4, I1-T5 — docs/planning/l1-capture/I1-T5-card-edit-delete/
+// Task: I1-T3 (origin), I1-T4, I1-T5, I1-T6 — docs/planning/l1-capture/I1-T6-resume-folder/
 /// Root navigation shell. Owns `NavigationStack` path (folder word list and word card).
 @Reducer
 public struct GLIAppFeature {
@@ -21,13 +22,29 @@ public struct GLIAppFeature {
     public struct State: Equatable {
         public var languageFolders = GLILanguageFoldersFeature.State()
         public var path = StackState<Path.State>()
+        /// Folder ID loaded from persistence; resolved after the first successful folder list load.
+        public var pendingResumeFolderID: UUID?
+        /// Whether cold-launch persistence has been read into `pendingResumeFolderID`.
+        public var hasLoadedPendingResume = false
+        /// Whether the root list has completed at least one successful load (required before resolve).
+        public var hasCompletedInitialFolderLoad = false
+        /// Prevents later folder-list refreshes from pushing a second resume destination.
+        public var didAttemptFolderRestore = false
 
         public init(
             languageFolders: GLILanguageFoldersFeature.State = GLILanguageFoldersFeature.State(),
-            path: StackState<Path.State> = StackState<Path.State>()
+            path: StackState<Path.State> = StackState<Path.State>(),
+            pendingResumeFolderID: UUID? = nil,
+            hasLoadedPendingResume: Bool = false,
+            hasCompletedInitialFolderLoad: Bool = false,
+            didAttemptFolderRestore: Bool = false
         ) {
             self.languageFolders = languageFolders
             self.path = path
+            self.pendingResumeFolderID = pendingResumeFolderID
+            self.hasLoadedPendingResume = hasLoadedPendingResume
+            self.hasCompletedInitialFolderLoad = hasCompletedInitialFolderLoad
+            self.didAttemptFolderRestore = didAttemptFolderRestore
         }
     }
 
@@ -38,6 +55,8 @@ public struct GLIAppFeature {
         case path(StackActionOf<Path>)
     }
 
+    @Dependency(\.lastOpenedFolder) var lastOpenedFolder
+
     public init() {}
 
     public var body: some Reducer<State, Action> {
@@ -47,7 +66,13 @@ public struct GLIAppFeature {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                return .none
+                guard !state.hasLoadedPendingResume else {
+                    return .none
+                }
+                state.pendingResumeFolderID = lastOpenedFolder.load()
+                state.hasLoadedPendingResume = true
+                // Calling restore here too is just defensive so resume still works if a successful folder load ever arrives before that onAppear.
+                return Self.attemptFolderRestore(state: &state, lastOpenedFolder: lastOpenedFolder)
 
             case let .languageFolders(.folderTapped(id)):
                 guard let folder = state.languageFolders.folders[id: id] else {
@@ -62,7 +87,12 @@ public struct GLIAppFeature {
                         )
                     )
                 )
+                lastOpenedFolder.saveFolder(folder.id)
                 return .none
+
+            case .languageFolders(.foldersLoaded(.success)):
+                state.hasCompletedInitialFolderLoad = true
+                return Self.attemptFolderRestore(state: &state, lastOpenedFolder: lastOpenedFolder)
 
             case .languageFolders:
                 return .none
@@ -139,7 +169,61 @@ public struct GLIAppFeature {
                 return .none
             }
         }
-        .forEach(\.path, action: \.path)
+        .forEach(\.path, action: \.path) // Wires each StackState element to the matching Path destination reducer. destination reducer runs before base reducer.
+        // Run after the stack mutates so a pop-to-root sees `path.isEmpty`.
+        // Card-on-stack still leaves the folder destination, so persistence stays.
+        Reduce { state, action in
+            switch action {
+            case .path:
+                guard state.didAttemptFolderRestore, state.path.isEmpty else {
+                    return .none
+                }
+                lastOpenedFolder.clearToRoot()
+                return .none
+            default:
+                return .none
+            }
+        }
+    }
+
+    /// Resolves `pendingResumeFolderID` once folders are loaded. Stale IDs clear persistence and stay at root.
+    private static func attemptFolderRestore(
+        state: inout State,
+        lastOpenedFolder: GLILastOpenedFolderClient
+    ) -> Effect<Action> {
+        guard !state.didAttemptFolderRestore else {
+            return .none
+        }
+        guard state.hasLoadedPendingResume, state.hasCompletedInitialFolderLoad else {
+            return .none
+        }
+
+        state.didAttemptFolderRestore = true
+        defer { state.pendingResumeFolderID = nil }
+
+        // User already navigated (e.g. tapped a folder before restore resolved) — keep their stack.
+        guard state.path.isEmpty else {
+            return .none
+        }
+
+        guard let folderID = state.pendingResumeFolderID else {
+            return .none
+        }
+
+        guard let folder = state.languageFolders.folders[id: folderID] else {
+            lastOpenedFolder.clearToRoot()
+            return .none
+        }
+
+        state.path.append(
+            .folderWords(
+                GLIFolderWordsFeature.State(
+                    id: folder.id,
+                    languageCode: folder.languageCode
+                )
+            )
+        )
+        return .none
     }
 }
 

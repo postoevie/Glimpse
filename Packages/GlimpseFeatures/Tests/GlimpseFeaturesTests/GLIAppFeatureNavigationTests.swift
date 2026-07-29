@@ -23,6 +23,7 @@ struct GLIAppFeatureNavigationTests {
         ) {
             GLIAppFeature()
         } withDependencies: {
+            $0.lastOpenedFolder = .inMemory()
             $0.languageFolders = GLILanguageFoldersClient(fetchLanguageFolders: { [folder] })
             $0.wordPairs = GLIWordPairsClient(
                 fetchWordPairs: { [] },
@@ -68,6 +69,7 @@ struct GLIAppFeatureNavigationTests {
         ) {
             GLIAppFeature()
         } withDependencies: {
+            $0.lastOpenedFolder = .inMemory()
             $0.languageFolders = GLILanguageFoldersClient(fetchLanguageFolders: { [folder] })
             $0.wordPairs = GLIWordPairsClient(
                 fetchWordPairs: { [] },
@@ -122,6 +124,7 @@ struct GLIAppFeatureNavigationTests {
         ) {
             GLIAppFeature()
         } withDependencies: {
+            $0.lastOpenedFolder = .inMemory()
             $0.languageFolders = GLILanguageFoldersClient(fetchLanguageFolders: { [] })
             $0.wordPairs = GLIWordPairsClient(
                 fetchWordPairs: { [] },

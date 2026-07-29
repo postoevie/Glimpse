@@ -7,8 +7,25 @@ let package = Package(
     products: [
         .library(name: "GlimpseCore", targets: ["GlimpseCore"]),
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/pointfreeco/xctest-dynamic-overlay",
+            from: "1.0.0"
+        ),
+    ],
     targets: [
-        .target(name: "GlimpseCore"),
-        .testTarget(name: "GlimpseCoreTests", dependencies: ["GlimpseCore"]),
+        .target(
+            name: "GlimpseCore",
+            dependencies: [
+                .product(name: "IssueReporting", package: "xctest-dynamic-overlay"),
+            ]
+        ),
+        .testTarget(
+            name: "GlimpseCoreTests",
+            dependencies: [
+                "GlimpseCore",
+                .product(name: "IssueReporting", package: "xctest-dynamic-overlay"),
+            ]
+        ),
     ]
 )

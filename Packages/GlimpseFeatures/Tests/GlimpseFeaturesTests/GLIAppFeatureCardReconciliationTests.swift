@@ -23,6 +23,7 @@ struct GLIAppFeatureCardReconciliationTests {
         let store = TestStore(initialState: initialState) {
             GLIAppFeature()
         } withDependencies: {
+            $0.lastOpenedFolder = .inMemory()
             $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in
@@ -67,6 +68,7 @@ struct GLIAppFeatureCardReconciliationTests {
         let store = TestStore(initialState: initialState) {
             GLIAppFeature()
         } withDependencies: {
+            $0.lastOpenedFolder = .inMemory()
             $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in

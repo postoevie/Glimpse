@@ -10,16 +10,17 @@
 |---|---|
 | **Process stage** | 10 — Development |
 | **Active increment** | I1 — Capture → folder → card |
-| **Active task** | — (I1-T5 verified) |
-| **Task AC** | I1-T5 **Verified** — edit/delete + mutations; packages tests green |
-| **Impl plan** | — |
-| **Next gate** | I1 remaining in Grab (T6 resume shell) or I2 |
+| **Active task** | — (I1-T6 verified) |
+| **Task AC** | Cold resume folder/root; card/sheet → folder; stale → root |
+| **Impl plan** | — (code in packages; see task `## Code`) |
+| **Next gate** | I2 in Grab (or remaining I1 shell items) |
 
 **I1-T1:** Verified.  
 **I1-T2:** Code done (manual AC may still be spot-checked).  
 **I1-T3:** Verified — folder word list + Add from list.  
 **I1-T4:** **Verified** — `GLIWordCardFeature` on app path; `GLIWordExampleEntity` sidecar.  
-**I1-T5:** **Verified** — edit/delete on `GLIWordCardFeature`; `GLICardMutationsClient` / `GLIModelActor.update`/`delete`.
+**I1-T5:** **Verified** — edit/delete on `GLIWordCardFeature`; `GLICardMutationsClient` / `GLIModelActor.update`/`delete`.  
+**I1-T6:** **Verified** — `GLILastOpenedFolderClient` + resume in `GLIAppFeature`; Core/Features/GlimpseTests green.
 
 
 ---
@@ -73,7 +74,7 @@ Milestone: offline demo = I0–I5 complete.
 | T3 Folder word list | `I1-T3-folder-word-list/I1-T3-folder-word-list.md` | **Verified** |
 | T4 Word card | `I1-T4-word-card/I1-T4-word-card.md` | **Verified** |
 | T5 Card edit + delete | `I1-T5-card-edit-delete/I1-T5-card-edit-delete.md` | **Verified** |
-| T6 Resume last folder | `I1-T6-resume-folder/I1-T6-resume-folder.md` | Ready (not started) |
+| T6 Resume last folder | `I1-T6-resume-folder/I1-T6-resume-folder.md` | **Verified** |
 | T7 End-to-end acceptance | `I1-T7-e2e-acceptance/I1-T7-e2e-acceptance.md` | Ready (not started) |
 
 ---

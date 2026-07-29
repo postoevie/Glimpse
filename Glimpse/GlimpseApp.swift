@@ -49,6 +49,7 @@ struct GlimpseApp: App {
         $0.languageDetector = .live
         $0.wordExamples = .live(actor: actor)
         $0.cardMutations = .live(actor: actor)
+        $0.lastOpenedFolder = .live()
     }
 
     var body: some Scene {
