@@ -29,6 +29,9 @@ struct GlimpseApp: App {
             fetchWordPairsInFolder: { folderID in
                 try await actor.fetchWordPairs(inFolderID: folderID)
             },
+            fetchWordPairsInCustomFolder: { customFolderID in
+                try await actor.fetchWordPairs(inCustomFolderID: customFolderID)
+            },
             save: { pair in try await actor.saveWordPair(pair) },
             changes: {
                 AsyncStream { continuation in
@@ -50,6 +53,9 @@ struct GlimpseApp: App {
         $0.wordExamples = .live(actor: actor)
         $0.cardMutations = .live(actor: actor)
         $0.lastOpenedFolder = .live()
+        let preferences = GLIPreferencesClient.live()
+        $0.preferences = preferences
+        $0.customFolders = .live(actor: actor, preferences: preferences)
     }
 
     var body: some Scene {

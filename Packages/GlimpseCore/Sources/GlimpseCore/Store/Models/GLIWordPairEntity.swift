@@ -10,6 +10,7 @@ public final class GLIWordPairEntity {
     public var targetLanguage: String?
     public var createdAt: Date
     public var languageFolder: GLILanguageFolderEntity?
+    public var customFolder: GLICustomFolderEntity?
 
     public init(
         id: UUID = UUID(),
@@ -18,7 +19,8 @@ public final class GLIWordPairEntity {
         sourceLanguage: String? = nil,
         targetLanguage: String? = nil,
         createdAt: Date = .now,
-        languageFolder: GLILanguageFolderEntity? = nil
+        languageFolder: GLILanguageFolderEntity? = nil,
+        customFolder: GLICustomFolderEntity? = nil
     ) {
         self.id = id
         self.word = word
@@ -27,5 +29,6 @@ public final class GLIWordPairEntity {
         self.targetLanguage = targetLanguage
         self.createdAt = createdAt
         self.languageFolder = languageFolder
+        self.customFolder = customFolder
     }
 }

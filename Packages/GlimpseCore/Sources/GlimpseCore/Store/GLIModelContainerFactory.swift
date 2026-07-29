@@ -7,6 +7,7 @@ public enum GLIModelContainerFactory {
             GLIWordPairEntity.self,
             GLILanguageFolderEntity.self,
             GLIWordExampleEntity.self,
+            GLICustomFolderEntity.self,
         ])
     }
 

@@ -1,6 +1,11 @@
 import Foundation
 import SwiftData
 
+public enum GLICustomFoldersError: Error, Equatable, Sendable {
+    case emptyName
+    case folderNotFound(UUID)
+}
+
 @ModelActor
 public actor GLIModelActor {
     public func fetchWordPairs() throws -> [GLIWordPair] {
@@ -16,6 +21,25 @@ public actor GLIModelActor {
         var descriptor = FetchDescriptor<GLILanguageFolderEntity>(
             predicate: #Predicate { folder in
                 folder.id == folderID
+            }
+        )
+        descriptor.fetchLimit = 1
+
+        guard let folder = try modelContext.fetch(descriptor).first else {
+            return []
+        }
+
+        return folder.items
+            .sorted { $0.createdAt > $1.createdAt }
+            .map(Self.mapWordPair)
+    }
+
+    /// Word pairs in one custom folder, newest first. Missing folder yields `[]`.
+    public func fetchWordPairs(inCustomFolderID customFolderID: UUID) throws -> [GLIWordPair] {
+        let customFolderID = customFolderID
+        var descriptor = FetchDescriptor<GLICustomFolderEntity>(
+            predicate: #Predicate { folder in
+                folder.id == customFolderID
             }
         )
         descriptor.fetchLimit = 1
@@ -45,6 +69,42 @@ public actor GLIModelActor {
             default:
                 return lhs.languageCode < rhs.languageCode
             }
+        }
+    }
+
+    /// Custom folders ordered by name (ascending). Entity has no `createdAt`.
+    public func fetchCustomFolders() throws -> [GLICustomFolder] {
+        let descriptor = FetchDescriptor<GLICustomFolderEntity>(
+            sortBy: [SortDescriptor(\.name, order: .forward)]
+        )
+        return try modelContext.fetch(descriptor).map(Self.mapCustomFolder)
+    }
+
+    public func createCustomFolder(name: String) throws -> GLICustomFolder {
+        let trimmedName = try Self.validatedFolderName(name)
+        let entity = GLICustomFolderEntity(name: trimmedName)
+        modelContext.insert(entity)
+        try modelContext.save()
+        return Self.mapCustomFolder(entity)
+    }
+
+    public func renameCustomFolder(id: UUID, name: String) throws -> GLICustomFolder {
+        let trimmedName = try Self.validatedFolderName(name)
+        let entity = try fetchCustomFolderEntity(id: id)
+        entity.name = trimmedName
+        try modelContext.save()
+        return Self.mapCustomFolder(entity)
+    }
+
+    /// Clears custom-folder membership on words, then deletes the folder.
+    /// Does not change language folders or word text/languages.
+    public func deleteCustomFolder(id: UUID) throws {
+        let entity = try fetchCustomFolderEntity(id: id)
+        try modelContext.transaction {
+            for item in entity.items {
+                item.customFolder = nil
+            }
+            modelContext.delete(entity)
         }
     }
 
@@ -115,6 +175,21 @@ public actor GLIModelActor {
         return folder
     }
 
+    private func fetchCustomFolderEntity(id: UUID) throws -> GLICustomFolderEntity {
+        let id = id
+        var descriptor = FetchDescriptor<GLICustomFolderEntity>(
+            predicate: #Predicate { folder in
+                folder.id == id
+            }
+        )
+        descriptor.fetchLimit = 1
+
+        guard let entity = try modelContext.fetch(descriptor).first else {
+            throw GLICustomFoldersError.folderNotFound(id)
+        }
+        return entity
+    }
+
     private func fetchWordEntity(id: GLIWordPair.ID) throws -> GLIWordPairEntity {
         let id = id
         var descriptor = FetchDescriptor<GLIWordPairEntity>(
@@ -164,6 +239,23 @@ public actor GLIModelActor {
             sourceLanguage: entity.sourceLanguage,
             targetLanguage: entity.targetLanguage
         )
+    }
+
+    private static func mapCustomFolder(_ entity: GLICustomFolderEntity) -> GLICustomFolder {
+        GLICustomFolder(
+            id: entity.id,
+            name: entity.name,
+            sourceLanguage: entity.sourceLanguage,
+            targetLanguage: entity.targetLanguage
+        )
+    }
+
+    private static func validatedFolderName(_ name: String) throws -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw GLICustomFoldersError.emptyName
+        }
+        return trimmed
     }
 
     private static func normalizedLanguageCode(_ code: String?) -> String? {
