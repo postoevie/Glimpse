@@ -14,18 +14,33 @@ struct GLILanguageFoldersFeatureTests {
     private func makeStore(
         initialState: GLILanguageFoldersFeature.State = .init(),
         languageFolders: GLILanguageFoldersClient,
-        wordPairs: GLIWordPairsClient
+        wordPairs: GLIWordPairsClient,
+        customFolders: GLICustomFoldersClient? = nil
     ) -> TestStoreOf<GLILanguageFoldersFeature> {
-        TestStore(initialState: initialState) {
+        let customFolders = customFolders ?? finishedChangesCustomFolders()
+        return TestStore(initialState: initialState) {
             GLILanguageFoldersFeature()
         } withDependencies: {
             $0.languageFolders = languageFolders
             $0.wordPairs = wordPairs
+            $0.customFolders = customFolders
             // AddWord child calls languageDetector on Done when source isn't manual.
             $0.languageDetector = GLILanguageDetectorClient(
                 detectSourceLanguage: { _ in "es" }
             )
         }
+    }
+
+    private func finishedChangesCustomFolders(
+        fetch: @escaping @Sendable () async throws -> [GLICustomFolder] = { [] }
+    ) -> GLICustomFoldersClient {
+        GLICustomFoldersClient(
+            fetch: fetch,
+            create: { name in GLICustomFolder(name: name) },
+            rename: { id, name in GLICustomFolder(id: id, name: name) },
+            delete: { _ in },
+            changes: { AsyncStream { $0.finish() } }
+        )
     }
 
     private func finishedChangesWordPairs(
@@ -69,12 +84,16 @@ struct GLILanguageFoldersFeatureTests {
             languageFolders: foldersClient(fetch: { [existing] }),
             wordPairs: finishedChangesWordPairs()
         )
+        // Dual observe merge — skip exact receive order; assert final gate + lists.
+        store.exhaustivity = .off
 
         await store.send(.onAppear)
-        await store.receive(\.foldersLoaded) {
-            $0.folders = IdentifiedArray(uniqueElements: [existing])
-            $0.hasCompletedInitialLoad = true
-        }
+        await store.skipReceivedActions()
+        #expect(store.state.folders == IdentifiedArray(uniqueElements: [existing]))
+        #expect(store.state.customFolders.isEmpty)
+        #expect(store.state.hasCompletedLanguageFoldersLoad)
+        #expect(store.state.hasCompletedCustomFoldersLoad)
+        #expect(store.state.hasCompletedInitialLoad)
         await store.finish()
     }
 
@@ -88,8 +107,10 @@ struct GLILanguageFoldersFeatureTests {
 
         await store.send(.foldersLoaded(.success([folder]))) {
             $0.folders = IdentifiedArray(uniqueElements: [folder])
-            $0.hasCompletedInitialLoad = true
+            $0.hasCompletedLanguageFoldersLoad = true
+            // Initial load waits for custom folders too.
         }
+        #expect(!store.state.hasCompletedInitialLoad)
     }
 
     @Test("folderTapped is a no-op until I1-T3")

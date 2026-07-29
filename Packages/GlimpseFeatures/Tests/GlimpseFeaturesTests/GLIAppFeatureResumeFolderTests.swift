@@ -28,7 +28,7 @@ struct GLIAppFeatureResumeFolderTests {
 
         await store.send(.languageFolders(.foldersLoaded(.success([languageFolder])))) {
             $0.languageFolders.folders = IdentifiedArray(uniqueElements: [languageFolder])
-            $0.languageFolders.hasCompletedInitialLoad = true
+            $0.languageFolders.hasCompletedLanguageFoldersLoad = true
             $0.hasCompletedInitialFolderLoad = true
             $0.didAttemptFolderRestore = true
             $0.pendingResumeFolderID = nil
@@ -55,7 +55,7 @@ struct GLIAppFeatureResumeFolderTests {
         }
         await store.send(.languageFolders(.foldersLoaded(.success([languageFolder])))) {
             $0.languageFolders.folders = IdentifiedArray(uniqueElements: [languageFolder])
-            $0.languageFolders.hasCompletedInitialLoad = true
+            $0.languageFolders.hasCompletedLanguageFoldersLoad = true
             $0.hasCompletedInitialFolderLoad = true
             $0.didAttemptFolderRestore = true
             $0.pendingResumeFolderID = nil
@@ -86,7 +86,7 @@ struct GLIAppFeatureResumeFolderTests {
         }
         await store.send(.languageFolders(.foldersLoaded(.success([unsorted])))) {
             $0.languageFolders.folders = IdentifiedArray(uniqueElements: [unsorted])
-            $0.languageFolders.hasCompletedInitialLoad = true
+            $0.languageFolders.hasCompletedLanguageFoldersLoad = true
             $0.hasCompletedInitialFolderLoad = true
             $0.didAttemptFolderRestore = true
             $0.pendingResumeFolderID = nil
@@ -113,7 +113,7 @@ struct GLIAppFeatureResumeFolderTests {
         }
         await store.send(.languageFolders(.foldersLoaded(.success([languageFolder])))) {
             $0.languageFolders.folders = IdentifiedArray(uniqueElements: [languageFolder])
-            $0.languageFolders.hasCompletedInitialLoad = true
+            $0.languageFolders.hasCompletedLanguageFoldersLoad = true
             $0.hasCompletedInitialFolderLoad = true
             $0.didAttemptFolderRestore = true
             $0.pendingResumeFolderID = nil
