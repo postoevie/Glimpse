@@ -6,16 +6,16 @@ extension GLILastOpenedFolderClient: DependencyKey {
     public static var liveValue: GLILastOpenedFolderClient {
         // Apps must inject a real client via withDependencies (see app entry).
         GLILastOpenedFolderClient(
-            load: unimplemented("GLILastOpenedFolderClient.load", placeholder: nil),
-            saveFolder: unimplemented("GLILastOpenedFolderClient.saveFolder"),
+            load: unimplemented("GLILastOpenedFolderClient.load", placeholder: nil as GLILastOpenedFolder?),
+            save: unimplemented("GLILastOpenedFolderClient.save"),
             clearToRoot: unimplemented("GLILastOpenedFolderClient.clearToRoot")
         )
     }
 
     public static var testValue: GLILastOpenedFolderClient {
         GLILastOpenedFolderClient(
-            load: unimplemented("GLILastOpenedFolderClient.load", placeholder: nil),
-            saveFolder: unimplemented("GLILastOpenedFolderClient.saveFolder"),
+            load: unimplemented("GLILastOpenedFolderClient.load", placeholder: nil as GLILastOpenedFolder?),
+            save: unimplemented("GLILastOpenedFolderClient.save"),
             clearToRoot: unimplemented("GLILastOpenedFolderClient.clearToRoot")
         )
     }

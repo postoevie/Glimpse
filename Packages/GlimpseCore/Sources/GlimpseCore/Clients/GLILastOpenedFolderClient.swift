@@ -88,6 +88,36 @@ public struct GLILastOpenedFolderClient: Sendable {
 }
 
 extension GLILastOpenedFolderClient {
+    /// Loads the persisted destination. If that folder is no longer in SwiftData, clears persistence and returns `nil` (root).
+    public func loadClearingIfFolderMissing(
+        fetchLanguageFolder: @escaping @Sendable (UUID) async throws -> GLILanguageFolder?,
+        fetchCustomFolder: @escaping @Sendable (UUID) async throws -> GLICustomFolder?
+    ) async -> GLILastOpenedFolder? {
+        guard let destination = load() else {
+            return nil
+        }
+
+        let exists: Bool
+        do {
+            switch destination {
+            case .language(let id):
+                exists = try await fetchLanguageFolder(id) != nil
+            case .custom(let id):
+                exists = try await fetchCustomFolder(id) != nil
+            }
+        } catch {
+            clearToRoot()
+            return nil
+        }
+
+        guard exists else {
+            clearToRoot()
+            return nil
+        }
+
+        return destination
+    }
+
     /// Stable App Group `UserDefaults` key for the last opened folder.
     /// Value format is owned by ``GLILastOpenedFolder/persistedString``.
     public static let storageKey = "lastOpenedFolderID"

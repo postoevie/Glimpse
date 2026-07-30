@@ -20,11 +20,13 @@ public struct GLIFolderWordsView: View {
                 } description: {
                     Text("Words you save in this folder will appear here.")
                 } actions: {
-                    Button("Add", systemImage: "plus") {
-                        store.send(.addButtonTapped)
+                    if !store.identity.isCustom {
+                        Button("Add", systemImage: "plus") {
+                            store.send(.addButtonTapped)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .frame(minWidth: 44, minHeight: 44)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .frame(minWidth: 44, minHeight: 44)
                 }
             } else {
                 List {
@@ -56,30 +58,58 @@ public struct GLIFolderWordsView: View {
         }
         .navigationTitle(folderTitle)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    store.send(.addButtonTapped)
-                } label: {
-                    Label("Add", systemImage: "plus")
+            if !store.identity.isCustom {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        store.send(.addButtonTapped)
+                    } label: {
+                        Label("Add", systemImage: "plus")
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel("Add")
                 }
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Add")
+            }
+            if store.identity.isCustom {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Rename", systemImage: "pencil") {
+                            store.send(.renameButtonTapped)
+                        }
+                        Button("Delete", systemImage: "trash", role: .destructive) {
+                            store.send(.deleteButtonTapped)
+                        }
+                    } label: {
+                        Label("Folder Actions", systemImage: "ellipsis.circle")
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel("Folder Actions")
+                }
             }
         }
         .sheet(item: $store.scope(\.addWord, action: \.addWord)) { store in
             GLIAddWordView(store: store)
         }
+        .sheet(item: $store.scope(\.folderForm, action: \.folderForm)) { store in
+            GLIFolderFormView(store: store)
+        }
+        .alert($store.scope(\.alert, action: \.alert))
         .task {
             await store.send(.onAppear).finish()
         }
     }
 
     private var folderTitle: String {
-        if store.languageCode == GLILanguageFolder.unsortedCode {
+        if let name = store.customFolderName {
+            return name
+        }
+        guard let languageCode = store.languageCode else {
+            return ""
+        }
+        if languageCode == GLILanguageFolder.unsortedCode {
             return "Unsorted"
         }
-        return Locale.current.localizedString(forLanguageCode: store.languageCode)
-            ?? store.languageCode
+        return Locale.current.localizedString(forLanguageCode: languageCode)
+            ?? languageCode
     }
 
     private func accessibilityLabel(for word: GLIWordPair) -> String {
@@ -96,11 +126,11 @@ public struct GLIFolderWordsView: View {
             store: Store(
                 initialState: GLIFolderWordsFeature.State(
                     id: UUID(),
-                    languageCode: "es",
                     words: [
                         GLIWordPair(word: "hola", translation: "hello", sourceLanguage: "es"),
                         GLIWordPair(word: "gracias", translation: "", sourceLanguage: "es"),
                     ],
+                    languageCode: "es",
                     hasCompletedInitialLoad: true
                 )
             ) {

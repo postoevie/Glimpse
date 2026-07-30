@@ -36,8 +36,12 @@ struct GLILanguageFoldersFeatureTests {
     ) -> GLICustomFoldersClient {
         GLICustomFoldersClient(
             fetch: fetch,
-            create: { name in GLICustomFolder(name: name) },
-            rename: { id, name in GLICustomFolder(id: id, name: name) },
+            create: { name, sourceLanguage in
+                GLICustomFolder(name: name, sourceLanguage: sourceLanguage)
+            },
+            rename: { id, name in
+                GLICustomFolder(id: id, name: name, sourceLanguage: "es")
+            },
             delete: { _ in },
             changes: { AsyncStream { $0.finish() } }
         )

@@ -7,6 +7,7 @@ extension GLICustomFoldersClient: DependencyKey {
         // Apps must inject a real client via withDependencies (see app entry).
         GLICustomFoldersClient(
             fetch: unimplemented("GLICustomFoldersClient.fetch"),
+            fetchCustomFolder: unimplemented("GLICustomFoldersClient.fetchCustomFolder"),
             create: unimplemented("GLICustomFoldersClient.create"),
             rename: unimplemented("GLICustomFoldersClient.rename"),
             delete: unimplemented("GLICustomFoldersClient.delete"),

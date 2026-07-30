@@ -197,17 +197,26 @@ public struct GLILanguageFoldersFeature {
                     return .none
                 }
                 let name = form.name
-                let mode = form.mode
-                return .run { [customFolders] send in
-                    switch mode {
-                    case .create:
-                        _ = try await customFolders.create(name)
-                    case let .rename(id):
-                        _ = try await customFolders.rename(id, name)
+                switch form.mode {
+                case .create:
+                    guard let sourceLanguage = form.sourceLanguage, !sourceLanguage.isEmpty else {
+                        reportIssue("folderForm create saved without sourceLanguage")
+                        return .none
                     }
-                    await send(.folderForm(.dismiss))
-                } catch: { error, _ in
-                    reportIssue(error)
+                    return .run { [customFolders] send in
+                        _ = try await customFolders.create(name, sourceLanguage)
+                        await send(.folderForm(.dismiss))
+                    } catch: { error, _ in
+                        reportIssue(error)
+                    }
+
+                case let .rename(id):
+                    return .run { [customFolders] send in
+                        _ = try await customFolders.rename(id, name)
+                        await send(.folderForm(.dismiss))
+                    } catch: { error, _ in
+                        reportIssue(error)
+                    }
                 }
 
             case .folderForm:

@@ -6,7 +6,8 @@ extension GLILanguageFoldersClient: DependencyKey {
     public static var liveValue: GLILanguageFoldersClient {
         // Apps must inject a real client via withDependencies (see app entry).
         GLILanguageFoldersClient(
-            fetchLanguageFolders: unimplemented("GLILanguageFoldersClient.fetchLanguageFolders")
+            fetchLanguageFolders: unimplemented("GLILanguageFoldersClient.fetchLanguageFolders"),
+            fetchLanguageFolder: unimplemented("GLILanguageFoldersClient.fetchLanguageFolder")
         )
     }
 

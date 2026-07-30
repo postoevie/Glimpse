@@ -109,8 +109,8 @@ struct GLIAppFeatureCardReconciliationTests {
             .folderWords(
                 GLIFolderWordsFeature.State(
                     id: folderID,
-                    languageCode: "es",
-                    words: IdentifiedArray(uniqueElements: words)
+                    words: IdentifiedArray(uniqueElements: words),
+                    languageCode: "es"
                 )
             )
         )

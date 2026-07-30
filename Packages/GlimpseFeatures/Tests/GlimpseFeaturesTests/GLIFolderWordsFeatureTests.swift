@@ -16,9 +16,13 @@ struct GLIFolderWordsFeatureTests {
     private func makeStore(
         languageCode: String = "es",
         initialState: GLIFolderWordsFeature.State? = nil,
-        wordPairs: GLIWordPairsClient
+        wordPairs: GLIWordPairsClient,
+        languageFolders: GLILanguageFoldersClient? = nil,
+        customFolders: GLICustomFoldersClient? = nil
     ) -> TestStoreOf<GLIFolderWordsFeature> {
-        TestStore(
+        let resolvedLanguageCode = languageCode
+        let folderID = folderID
+        return TestStore(
             initialState: initialState ?? GLIFolderWordsFeature.State(
                 id: folderID,
                 languageCode: languageCode
@@ -27,6 +31,23 @@ struct GLIFolderWordsFeatureTests {
             GLIFolderWordsFeature()
         } withDependencies: {
             $0.wordPairs = wordPairs
+            $0.languageFolders = languageFolders ?? GLILanguageFoldersClient(
+                fetchLanguageFolders: { [] },
+                fetchLanguageFolder: { id in
+                    guard id == folderID else { return nil }
+                    return GLILanguageFolder(id: folderID, languageCode: resolvedLanguageCode)
+                }
+            )
+            $0.customFolders = customFolders ?? GLICustomFoldersClient(
+                fetch: { [] },
+                create: { name, sourceLanguage in
+                    GLICustomFolder(name: name, sourceLanguage: sourceLanguage)
+                },
+                rename: { id, name in
+                    GLICustomFolder(id: id, name: name, sourceLanguage: "es")
+                },
+                delete: { _ in }
+            )
             $0.languageDetector = GLILanguageDetectorClient(
                 detectSourceLanguage: { _ in "es" }
             )
@@ -36,13 +57,35 @@ struct GLIFolderWordsFeatureTests {
 
     private func finishedChangesWordPairs(
         fetchInFolder: @escaping @Sendable (UUID) async throws -> [GLIWordPair] = { _ in [] },
+        fetchInCustomFolder: @escaping @Sendable (UUID) async throws -> [GLIWordPair] = { _ in [] },
         save: @escaping @Sendable (GLIWordPair) async throws -> Void = { _ in }
     ) -> GLIWordPairsClient {
         GLIWordPairsClient(
             fetchWordPairs: { [] },
             fetchWordPairsInFolder: fetchInFolder,
+            fetchWordPairsInCustomFolder: fetchInCustomFolder,
             save: save,
             changes: { AsyncStream { $0.finish() } }
+        )
+    }
+
+    private func customFoldersClient(
+        name: String = "Travel"
+    ) -> GLICustomFoldersClient {
+        let folderID = folderID
+        return GLICustomFoldersClient(
+            fetch: { [] },
+            fetchCustomFolder: { id in
+                guard id == folderID else { return nil }
+                return GLICustomFolder(id: folderID, name: name, sourceLanguage: "es")
+            },
+            create: { name, sourceLanguage in
+                GLICustomFolder(name: name, sourceLanguage: sourceLanguage)
+            },
+            rename: { id, name in
+                GLICustomFolder(id: id, name: name, sourceLanguage: "es")
+            },
+            delete: { _ in }
         )
     }
 
@@ -52,6 +95,7 @@ struct GLIFolderWordsFeatureTests {
         let expectedFolderID = folderID
         let fetchedFolderID = LockIsolated<UUID?>(nil)
         let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(identity: .language(folderID)),
             wordPairs: finishedChangesWordPairs(fetchInFolder: { id in
                 fetchedFolderID.setValue(id)
                 return [pair]
@@ -59,7 +103,8 @@ struct GLIFolderWordsFeatureTests {
         )
 
         await store.send(.onAppear)
-        await store.receive(\.wordsLoaded) {
+        await store.receive(\.contentLoaded) {
+            $0.languageCode = "es"
             $0.words = IdentifiedArray(uniqueElements: [pair])
             $0.hasCompletedInitialLoad = true
         }
@@ -69,17 +114,92 @@ struct GLIFolderWordsFeatureTests {
 
     @Test("onAppear with empty folder leaves words empty")
     func onAppearEmptyLoad() async {
-        let store = makeStore(wordPairs: finishedChangesWordPairs())
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(identity: .language(folderID)),
+            wordPairs: finishedChangesWordPairs()
+        )
 
         await store.send(.onAppear)
-        await store.receive(\.wordsLoaded) {
+        await store.receive(\.contentLoaded) {
+            $0.languageCode = "es"
             $0.hasCompletedInitialLoad = true
         }
         await store.finish()
         #expect(store.state.words.isEmpty)
     }
 
-    @Test("after save, changes stream triggers wordsLoaded refresh")
+    @Test("onAppear for custom folder loads via fetchWordPairsInCustomFolder")
+    func onAppearCustomFolderLoadsWords() async {
+        let pair = GLIWordPair(id: pairID, word: "hola", translation: "hello", sourceLanguage: "es")
+        let expectedFolderID = folderID
+        let fetchedCustomID = LockIsolated<UUID?>(nil)
+        let fetchedLanguageID = LockIsolated<UUID?>(nil)
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(identity: .custom(folderID)),
+            wordPairs: finishedChangesWordPairs(
+                fetchInFolder: { id in
+                    fetchedLanguageID.setValue(id)
+                    return []
+                },
+                fetchInCustomFolder: { id in
+                    fetchedCustomID.setValue(id)
+                    return [pair]
+                }
+            ),
+            customFolders: customFoldersClient()
+        )
+
+        await store.send(.onAppear)
+        await store.receive(\.contentLoaded) {
+            $0.customFolderName = "Travel"
+            $0.words = IdentifiedArray(uniqueElements: [pair])
+            $0.hasCompletedInitialLoad = true
+        }
+        await store.finish()
+        #expect(fetchedCustomID.value == expectedFolderID)
+        #expect(fetchedLanguageID.value == nil)
+    }
+
+    @Test("onAppear for empty custom folder leaves words empty after initial load")
+    func onAppearCustomFolderEmptyLoad() async {
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(identity: .custom(folderID)),
+            wordPairs: finishedChangesWordPairs(),
+            customFolders: customFoldersClient()
+        )
+
+        await store.send(.onAppear)
+        await store.receive(\.contentLoaded) {
+            $0.customFolderName = "Travel"
+            $0.hasCompletedInitialLoad = true
+        }
+        await store.finish()
+        #expect(store.state.words.isEmpty)
+    }
+
+    @Test("onAppear for missing language folder fails load, reports issue, and completes empty")
+    func onAppearMissingLanguageFolder() async {
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(identity: .language(folderID)),
+            wordPairs: finishedChangesWordPairs(),
+            languageFolders: GLILanguageFoldersClient(
+                fetchLanguageFolders: { [] },
+                fetchLanguageFolder: { _ in nil }
+            )
+        )
+
+        await withExpectedIssue("folder missing for identity") {
+            await store.send(.onAppear)
+            await store.receive(\.contentLoaded.failure) {
+                $0.hasCompletedInitialLoad = true
+            }
+        }
+        await store.finish()
+        #expect(store.state.words.isEmpty)
+        #expect(store.state.languageCode == nil)
+    }
+
+    @Test("after save, changes stream triggers contentLoaded refresh")
     func changesStreamRefreshesWordsAfterSave() async {
         let draft = GLIWordPair(
             id: draftID,
@@ -113,12 +233,12 @@ struct GLIFolderWordsFeatureTests {
         store.exhaustivity = .off
 
         await store.send(.onAppear)
-        await store.receive(\.wordsLoaded)
+        await store.receive(\.contentLoaded)
         #expect(store.state.words.isEmpty)
 
         await store.send(.addWord(.presented(.doneButtonTapped)))
         await store.receive(\.addWord.presented.delegate.wordAdded)
-        await store.receive(\.wordsLoaded)
+        await store.receive(\.contentLoaded)
         #expect(words.value == [draft])
         #expect(store.state.words == IdentifiedArray(uniqueElements: [draft]))
 
@@ -205,8 +325,8 @@ struct GLIFolderWordsFeatureTests {
         let store = makeStore(
             initialState: GLIFolderWordsFeature.State(
                 id: folderID,
-                languageCode: "es",
                 words: IdentifiedArray(uniqueElements: [pair]),
+                languageCode: "es",
                 hasCompletedInitialLoad: true
             ),
             wordPairs: finishedChangesWordPairs()
@@ -233,5 +353,179 @@ struct GLIFolderWordsFeatureTests {
         }
         #expect(store.state.words.isEmpty)
     }
-}
 
+    @Test("renameButtonTapped on custom folder presents rename form with current name")
+    func renameButtonPresentsForm() async {
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                identity: .custom(folderID),
+                customFolderName: "Travel",
+                hasCompletedInitialLoad: true
+            ),
+            wordPairs: finishedChangesWordPairs(),
+            customFolders: customFoldersClient()
+        )
+
+        await store.send(.renameButtonTapped) {
+            $0.folderForm = GLIFolderFormFeature.State(
+                mode: .rename(folderID),
+                name: "Travel"
+            )
+        }
+    }
+
+    @Test("renameButtonTapped on language folder reports issue")
+    func renameButtonOnLanguageFolderReportsIssue() async {
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                identity: .language(folderID),
+                languageCode: "es",
+                hasCompletedInitialLoad: true
+            ),
+            wordPairs: finishedChangesWordPairs()
+        )
+
+        await withExpectedIssue("renameButtonTapped on non-custom folder") {
+            await store.send(.renameButtonTapped)
+        }
+        #expect(store.state.folderForm == nil)
+    }
+
+    @Test("folderForm saved renames custom folder, updates title, and dismisses")
+    func folderFormSavedRenamesAndUpdatesTitle() async {
+        let renamedName = LockIsolated<String?>(nil)
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                identity: .custom(folderID),
+                customFolderName: "Travel",
+                hasCompletedInitialLoad: true,
+                folderForm: GLIFolderFormFeature.State(
+                    mode: .rename(folderID),
+                    name: "Trips"
+                )
+            ),
+            wordPairs: finishedChangesWordPairs(),
+            customFolders: GLICustomFoldersClient(
+                fetch: { [] },
+                fetchCustomFolder: { id in
+                    guard id == folderID else { return nil }
+                    return GLICustomFolder(id: folderID, name: "Travel", sourceLanguage: "es")
+                },
+                create: { name, sourceLanguage in
+                    GLICustomFolder(name: name, sourceLanguage: sourceLanguage)
+                },
+                rename: { id, name in
+                    renamedName.setValue(name)
+                    return GLICustomFolder(id: id, name: name, sourceLanguage: "es")
+                },
+                delete: { _ in }
+            )
+        )
+
+        await store.send(.folderForm(.presented(.delegate(.saved))))
+        await store.receive(\.customFolderRenamed) {
+            $0.customFolderName = "Trips"
+        }
+        await store.receive(\.folderForm.dismiss) {
+            $0.folderForm = nil
+        }
+        #expect(renamedName.value == "Trips")
+        #expect(store.state.customFolderName == "Trips")
+    }
+
+    @Test("deleteButtonTapped on custom folder presents confirm alert")
+    func deleteButtonPresentsAlert() async {
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                identity: .custom(folderID),
+                customFolderName: "Travel",
+                hasCompletedInitialLoad: true
+            ),
+            wordPairs: finishedChangesWordPairs(),
+            customFolders: customFoldersClient()
+        )
+
+        await store.send(.deleteButtonTapped) {
+            $0.alert = AlertState {
+                TextState("Delete Folder?")
+            } actions: {
+                ButtonState(
+                    role: .destructive,
+                    action: .confirmDeleteCustomFolder
+                ) {
+                    TextState("Delete")
+                }
+                ButtonState(role: .cancel) {
+                    TextState("Cancel")
+                }
+            } message: {
+                TextState("Words stay in their language folders.")
+            }
+        }
+    }
+
+    @Test("confirm delete deletes custom folder and delegates folderDeleted")
+    func confirmDeleteDelegatesFolderDeleted() async {
+        let deletedID = LockIsolated<UUID?>(nil)
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                identity: .custom(folderID),
+                customFolderName: "Travel",
+                hasCompletedInitialLoad: true,
+                alert: AlertState {
+                    TextState("Delete Folder?")
+                } actions: {
+                    ButtonState(
+                        role: .destructive,
+                        action: .confirmDeleteCustomFolder
+                    ) {
+                        TextState("Delete")
+                    }
+                    ButtonState(role: .cancel) {
+                        TextState("Cancel")
+                    }
+                } message: {
+                    TextState("Words stay in their language folders.")
+                }
+            ),
+            wordPairs: finishedChangesWordPairs(),
+            customFolders: GLICustomFoldersClient(
+                fetch: { [] },
+                fetchCustomFolder: { id in
+                    guard id == folderID else { return nil }
+                    return GLICustomFolder(id: folderID, name: "Travel", sourceLanguage: "es")
+                },
+                create: { name, sourceLanguage in
+                    GLICustomFolder(name: name, sourceLanguage: sourceLanguage)
+                },
+                rename: { id, name in
+                    GLICustomFolder(id: id, name: name, sourceLanguage: "es")
+                },
+                delete: { id in deletedID.setValue(id) }
+            )
+        )
+
+        await store.send(.alert(.presented(.confirmDeleteCustomFolder))) {
+            $0.alert = nil
+        }
+        await store.receive(\.delegate.folderDeleted)
+        #expect(deletedID.value == folderID)
+    }
+
+    @Test("deleteButtonTapped on language folder reports issue")
+    func deleteButtonOnLanguageFolderReportsIssue() async {
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                identity: .language(folderID),
+                languageCode: "es",
+                hasCompletedInitialLoad: true
+            ),
+            wordPairs: finishedChangesWordPairs()
+        )
+
+        await withExpectedIssue("deleteButtonTapped on non-custom folder") {
+            await store.send(.deleteButtonTapped)
+        }
+        #expect(store.state.alert == nil)
+    }
+}

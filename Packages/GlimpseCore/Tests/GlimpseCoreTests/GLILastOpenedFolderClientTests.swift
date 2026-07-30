@@ -123,4 +123,113 @@ struct GLILastOpenedFolderClientTests {
         #expect(client.load() == .custom(folderID))
         #expect(defaults.string(forKey: GLILastOpenedFolderClient.storageKey) == stored)
     }
+
+    @Test("loadClearingIfFolderMissing returns nil when nothing is persisted")
+    func loadClearingWhenNothingPersisted() async {
+        let client = GLILastOpenedFolderClient.inMemory()
+
+        let destination = await client.loadClearingIfFolderMissing(
+            fetchLanguageFolder: { _ in
+                Issue.record("language fetch should not run when nothing is persisted")
+                return nil
+            },
+            fetchCustomFolder: { _ in
+                Issue.record("custom fetch should not run when nothing is persisted")
+                return nil
+            }
+        )
+
+        #expect(destination == nil)
+        #expect(client.load() == nil)
+    }
+
+    @Test("loadClearingIfFolderMissing returns language destination when folder exists")
+    func loadClearingKeepsExistingLanguageFolder() async {
+        let folderID = UUID(uuidString: "00000000-0000-0000-0000-0000000000E1")!
+        let client = GLILastOpenedFolderClient.inMemory(initial: .language(folderID))
+
+        let destination = await client.loadClearingIfFolderMissing(
+            fetchLanguageFolder: { id in
+                guard id == folderID else { return nil }
+                return GLILanguageFolder(id: folderID, languageCode: "es")
+            },
+            fetchCustomFolder: { _ in
+                Issue.record("custom fetch should not run for language destination")
+                return nil
+            }
+        )
+
+        #expect(destination == .language(folderID))
+        #expect(client.load() == .language(folderID))
+    }
+
+    @Test("loadClearingIfFolderMissing returns custom destination when folder exists")
+    func loadClearingKeepsExistingCustomFolder() async {
+        let folderID = UUID(uuidString: "00000000-0000-0000-0000-0000000000E2")!
+        let client = GLILastOpenedFolderClient.inMemory(initial: .custom(folderID))
+
+        let destination = await client.loadClearingIfFolderMissing(
+            fetchLanguageFolder: { _ in
+                Issue.record("language fetch should not run for custom destination")
+                return nil
+            },
+            fetchCustomFolder: { id in
+                guard id == folderID else { return nil }
+                return GLICustomFolder(id: folderID, name: "Travel", sourceLanguage: "es")
+            }
+        )
+
+        #expect(destination == .custom(folderID))
+        #expect(client.load() == .custom(folderID))
+    }
+
+    @Test("loadClearingIfFolderMissing clears when language folder is missing")
+    func loadClearingClearsMissingLanguageFolder() async {
+        let folderID = UUID(uuidString: "00000000-0000-0000-0000-0000000000E3")!
+        let client = GLILastOpenedFolderClient.inMemory(initial: .language(folderID))
+
+        let destination = await client.loadClearingIfFolderMissing(
+            fetchLanguageFolder: { _ in nil },
+            fetchCustomFolder: { _ in
+                Issue.record("custom fetch should not run for language destination")
+                return nil
+            }
+        )
+
+        #expect(destination == nil)
+        #expect(client.load() == nil)
+    }
+
+    @Test("loadClearingIfFolderMissing clears when custom folder is missing")
+    func loadClearingClearsMissingCustomFolder() async {
+        let folderID = UUID(uuidString: "00000000-0000-0000-0000-0000000000E4")!
+        let client = GLILastOpenedFolderClient.inMemory(initial: .custom(folderID))
+
+        let destination = await client.loadClearingIfFolderMissing(
+            fetchLanguageFolder: { _ in
+                Issue.record("language fetch should not run for custom destination")
+                return nil
+            },
+            fetchCustomFolder: { _ in nil }
+        )
+
+        #expect(destination == nil)
+        #expect(client.load() == nil)
+    }
+
+    @Test("loadClearingIfFolderMissing clears when fetch throws")
+    func loadClearingClearsWhenFetchThrows() async {
+        let folderID = UUID(uuidString: "00000000-0000-0000-0000-0000000000E5")!
+        let client = GLILastOpenedFolderClient.inMemory(initial: .language(folderID))
+
+        struct StubError: Error {}
+
+        let destination = await client.loadClearingIfFolderMissing(
+            fetchLanguageFolder: { _ in throw StubError() },
+            fetchCustomFolder: { _ in nil }
+        )
+
+        #expect(destination == nil)
+        #expect(client.load() == nil)
+    }
 }

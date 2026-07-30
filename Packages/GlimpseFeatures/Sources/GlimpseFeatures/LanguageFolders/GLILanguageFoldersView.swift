@@ -71,7 +71,7 @@ public struct GLILanguageFoldersView: View {
             GLIAddWordView(store: store)
         }
         .sheet(item: $store.scope(\.folderForm, action: \.folderForm)) { store in
-            FolderFormSheet(store: store)
+            GLIFolderFormView(store: store)
         }
         .alert($store.scope(\.alert, action: \.alert))
         .task {
@@ -96,19 +96,30 @@ public struct GLILanguageFoldersView: View {
     }
 
     private func customFolderRow(_ folder: GLICustomFolder) -> some View {
-        Button {
+        let sourceDisplayName = displayName(forLanguageCode: folder.sourceLanguage)
+        return Button {
             store.send(.customFolderTapped(folder.id))
         } label: {
-            Text(folder.name)
-                .font(.body)
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 2)
-                .contentShape(Rectangle())
+            HStack(spacing: 8) {
+                Text(folder.name)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text(sourceDisplayName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.secondary.opacity(0.15), in: Capsule())
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .frame(minHeight: 44)
-        .accessibilityLabel(folder.name)
+        .accessibilityLabel("\(folder.name), \(sourceDisplayName)")
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
                 store.send(.deleteCustomFolderTapped(folder.id))
@@ -135,42 +146,11 @@ public struct GLILanguageFoldersView: View {
         if folder.isUnsorted {
             return "Unsorted"
         }
-        return Locale.current.localizedString(forLanguageCode: folder.languageCode)
-            ?? folder.languageCode
+        return displayName(forLanguageCode: folder.languageCode)
     }
-}
 
-private struct FolderFormSheet: View {
-    @Bindable var store: StoreOf<GLIFolderFormFeature>
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                TextField(
-                    "Name",
-                    text: $store.name.sending(\.nameChanged)
-                )
-                .textInputAutocapitalization(.sentences)
-                .accessibilityLabel("Folder name")
-            }
-            .navigationTitle(store.navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        store.send(.cancelButtonTapped)
-                    }
-                    .frame(minWidth: 44, minHeight: 44)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        store.send(.saveButtonTapped)
-                    }
-                    .disabled(!store.canSave)
-                    .frame(minWidth: 44, minHeight: 44)
-                }
-            }
-        }
+    private func displayName(forLanguageCode code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code) ?? code
     }
 }
 
@@ -185,7 +165,7 @@ private struct FolderFormSheet: View {
                         GLILanguageFolder(languageCode: GLILanguageFolder.unsortedCode),
                     ],
                     customFolders: [
-                        GLICustomFolder(name: "Travel"),
+                        GLICustomFolder(name: "Travel", sourceLanguage: "es"),
                     ],
                     hasCompletedInitialLoad: true
                 )
