@@ -12,6 +12,8 @@
 
 After a cold relaunch, the app returns to the last opened folder (language folder or Unsorted), or to the root folder list if no folder was previously opened. Scroll position, card detail, search query, and mid-deck state are not restored. Background → foreground needs no special resume (the existing navigation stack remains).
 
+**Scope note:** I1 delivers language folders + Unsorted only. IA’s “last folder” rule includes custom folders; **custom-folder cold resume is owned by I2-T1** (not this task).
+
 ---
 
 ## User story
@@ -74,6 +76,7 @@ As a user, I want the app to reopen where I left off in my folders, so I can con
 
 ## Out of scope (this task)
 
+- Custom-folder cold resume (I2-T1)
 - Resume to card detail
 - Resume mid-study deck
 - Resume search query

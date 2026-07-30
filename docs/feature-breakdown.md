@@ -156,9 +156,9 @@ flowchart LR
 - [ ] `text` required; translation optional; example starts blank.
 - [ ] Source language auto-detected; user may override when UI allows; `null` + Unsorted if detection fails and user skips pick.
 - [ ] Target language defaults to source when non-null; editable before save.
-- [ ] Default custom folder prefilled when language gate matches; user can change or clear; picker filtered by pending source (including `null`).
-- [ ] Selecting custom folder prefills source/target from folder when set; source locked after prefill; target still editable before save.
-- [ ] Add from folder detail uses the same sheet; when the open folder has `sourceLanguage`, source (and default target) are prefilled and source locked; Unsorted / unlocked empty custom → same detection/manual rules as root.
+- [ ] Default custom folder prefilled when language gate matches (folder source equals non-null pending source); user can change or clear; picker offers **all** custom folders (selecting one forces pending source). Pending `null` never auto-prefills a default.
+- [ ] Selecting a custom folder sets pending source to folder `sourceLanguage` (not editable / not clearable to null while selected) and may prefill target; target still editable before save. Clearing folder selection restores normal source rules.
+- [ ] Add from folder detail uses the same sheet; language folder or custom → source (and default target) prefilled and source locked; Unsorted → same detection/manual as root.
 - [ ] Save is fire-and-forget — no confirmation step; item appears in language folder (+ custom if chosen) and search index immediately.
 - [ ] Saving with a custom folder updates default custom folder preference (F2.5).
 - [ ] No dedup — same text creates a new Item.
@@ -180,9 +180,9 @@ flowchart LR
 
 **Acceptance criteria:**
 - [ ] User enters `text`; optional `translation`; saves in one action.
-- [ ] No folder, source, or target pickers — auto-detection + default custom folder when language matches (F2.5).
+- [ ] No folder, source, or target pickers — auto-detection + default custom folder when detection is non-null and matches default folder source (F2.5).
 - [ ] Item visible in main app after next open (same store as X1).
-- [ ] `null` detection → Unsorted; no blocking prompt.
+- [ ] `null` detection → Unsorted, no custom folder; no blocking prompt.
 
 **Depends on:** X1, F1.4, F2.5
 
@@ -261,11 +261,11 @@ flowchart LR
 | **Refs** | PRD §2; Flow 2; IA §Root, §Folder detail |
 
 **Acceptance criteria:**
-- [ ] Create folder with **name required** only; 0 items valid.
+- [ ] Create folder with **name and `sourceLanguage` required**; 0 items valid.
 - [ ] Rename custom folder anytime.
 - [ ] Delete custom folder → Items lose custom membership only; language folders unchanged.
 - [ ] If deleted folder was default custom folder, clear preference (F2.5).
-- [ ] `sourceLanguage` set from first Item added, then locked (including `null`); `targetLanguage` optional, synced from cards only, shown but not directly editable on folder.
+- [ ] `sourceLanguage` is a required language code set at create and immutable afterward; `targetLanguage` optional, synced from cards only, shown but not directly editable on folder.
 
 **Depends on:** X1, F3.1
 
@@ -283,9 +283,9 @@ flowchart LR
 
 **Acceptance criteria:**
 - [ ] At most one custom folder per Item; manual assign/remove only.
-- [ ] Picker shows folders with empty `sourceLanguage` or matching Item source (including `null` where allowed).
+- [ ] Picker shows folders whose `sourceLanguage` matches the Item’s non-null source.
 - [ ] Does not change Item `sourceLanguage`, language folder, or `targetLanguage`.
-- [ ] Adding Item may set folder `sourceLanguage` (first item) and folder `targetLanguage` (from Item target).
+- [ ] Adding Item may update folder `targetLanguage` (from Item target); does **not** change folder `sourceLanguage` (set at create).
 - [ ] Re-file into a folder updates default custom folder (F2.5).
 - [ ] **Not available** on Unsorted cards until F2.4 resolve used (Unsorted uses resolve path instead).
 
@@ -306,9 +306,9 @@ flowchart LR
 **Acceptance criteria:**
 - [ ] Shown only when `sourceLanguage` is `null` and resolve not yet consumed.
 - [ ] **Move to language folder:** user picks language → `sourceLanguage` set → language folder updated; custom folder unchanged.
-- [ ] **Move to custom folder:** user picks folder → Item filed; adopts folder's locked source if set (and moves language folder); if folder empty, user picks source language as part of action.
+- [ ] **Move to custom folder:** user picks folder → Item filed; **always adopts** folder’s required `sourceLanguage` (and moves language folder). Always leaves Item source non-null.
 - [ ] Does not change Item `targetLanguage`.
-- [ ] After either action, Unsorted-only actions hidden permanently for that Item (even if source stays `null` — edge case).
+- [ ] After either action, Unsorted-only actions hidden permanently for that Item.
 - [ ] Not shown on non-Unsorted cards.
 
 **Depends on:** X1, F2.1, F2.2, F4.1
@@ -327,10 +327,10 @@ flowchart LR
 
 **Acceptance criteria:**
 - [ ] Tracks last folder used at capture/re-file or manually chosen on add view.
-- [ ] In-app add: prefilled when folder source empty or matches pending source (including `null`).
-- [ ] Widget/Share: applied on save when gate matches; otherwise no custom folder.
+- [ ] In-app add: prefilled only when default folder source equals pending non-null source; pending `null` never auto-prefills.
+- [ ] Widget/Share: applied on save when detection is non-null and matches default folder source; otherwise no custom folder.
 - [ ] Cleared when that folder is deleted.
-- [ ] Gate: if pending source ≠ folder's locked source (and folder source not empty), skip default.
+- [ ] Gate: apply only when default folder source equals pending/detected non-null source; otherwise skip.
 
 **Depends on:** X1, F2.2
 
@@ -353,7 +353,7 @@ flowchart LR
 - [ ] Tap folder → item list; tap item → card detail (F4.1).
 - [ ] Empty custom folders show empty state; still openable.
 - [ ] Default item ordering uses `createdAt` (domain).
-- [ ] Folder detail has **Add** → same capture sheet as F1.1; prefills source/target from folder when `sourceLanguage` is set.
+- [ ] Folder detail has **Add** → same capture sheet as F1.1; prefills source/target when folder has `sourceLanguage` (language or custom); Unsorted → same as root (F1.1).
 
 **Depends on:** X1, X3, F2.1, F2.2, F1.1
 

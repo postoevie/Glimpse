@@ -99,7 +99,7 @@ Auto-created on first item with that source language (including Unsorted).
 |---|---|---|
 | `id` | `UUID` | |
 | `name` | `String` | Required |
-| `sourceLanguage` | `String?` | `nil` until first item locks it |
+| `sourceLanguage` | `String` | Required language code at create; immutable afterward — never `nil`/empty/unlocked |
 | `targetLanguage` | `String?` | Optional cache; card → folder sync only |
 | `items` | `[VocabItem]` | Inverse |
 
@@ -123,13 +123,15 @@ Auto-created on first item with that source language (including Unsorted).
 **Capture pipeline (all entry points):**
 
 1. Run recognizer on `text`.
-2. If `dominantLanguage` is `nil` (or below Apple’s internal threshold — use library defaults, no custom cutoff) → `sourceLanguage = nil`, assign **Unsorted** folder.
+2. If `dominantLanguage` is `nil` (or below Apple’s internal threshold — use library defaults, no custom cutoff) → pending `sourceLanguage = nil`.
 3. Else → map `NLLanguage` to stored code (e.g. `es`, `fr`).
-4. **Never re-run** on post-save `text` edits.
+4. **In-app only — selected / default-prefilled custom folder:** if a custom folder is selected, **override** pending `sourceLanguage` to that folder’s required `sourceLanguage` (user cannot change or clear source while the folder remains selected; clearing the folder restores steps 1–3 / manual pick). Detection failure does **not** win over a selected custom folder.
+5. On save: assign language folder from final pending source (`nil` → **Unsorted**); assign custom folder membership only when a custom folder is selected (source then always matches that folder).
+6. **Never re-run** detection on post-save `text` edits.
 
-**In-app capture:** optional manual override before save (UI allows pick; locks on save).
+**In-app capture:** optional manual source override before save **only when no custom folder is selected** (UI allows pick; locks on save). With a custom folder selected, source is defined by the folder.
 
-**Widget / Share:** no manual pick — fire-and-forget to Unsorted on failure.
+**Widget / Share:** no manual pick and no folder picker — detection as in steps 1–3; default custom folder applied only when detected source is non-null and matches that folder’s source; otherwise language folder only (Unsorted on detection failure).
 
 ---
 
@@ -201,13 +203,13 @@ All calls are **explicitly invoked from TCA effects** on button tap — never on
 ### In-app (F1.1)
 
 - TCA feature: capture sheet from root add action.
-- Runs detection → folder assignment → optional default custom folder pref (UserDefaults + language gate).
+- Runs detection → folder assignment → optional default custom folder pref (UserDefaults + language gate: default folder source equals non-null pending source; selecting any custom folder forces pending source).
 - Saves via `VocabularyStore`.
 
 ### Widget (F1.2)
 
 - **WidgetKit** + **App Intent** — user enters text (optional translation) in-widget.
-- Intent handler links GlimpseCore, runs same capture pipeline as app (no folder picker; default custom folder gate only).
+- Intent handler links GlimpseCore, runs same capture pipeline as app (no folder picker; default custom folder only when detection non-null matches default folder source).
 - Reload timelines / open app optional — save must complete in-extension.
 
 ### Share Extension (F1.3)
