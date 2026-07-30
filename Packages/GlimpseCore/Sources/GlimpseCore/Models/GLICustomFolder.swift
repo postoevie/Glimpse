@@ -3,13 +3,14 @@ import Foundation
 public nonisolated struct GLICustomFolder: Equatable, Identifiable, Sendable {
     public let id: UUID
     public var name: String
-    public var sourceLanguage: String?
+    /// Required language code from `GLILanguageCodes.systemCodes` (set at create; not editable later).
+    public var sourceLanguage: String
     public var targetLanguage: String?
 
     public init(
         id: UUID = UUID(),
         name: String,
-        sourceLanguage: String? = nil,
+        sourceLanguage: String,
         targetLanguage: String? = nil
     ) {
         self.id = id

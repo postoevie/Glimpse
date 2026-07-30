@@ -5,7 +5,7 @@ import SwiftData
 public final class GLICustomFolderEntity {
     @Attribute(.unique) public var id: UUID
     public var name: String
-    public var sourceLanguage: String?
+    public var sourceLanguage: String
     public var targetLanguage: String?
     @Relationship(deleteRule: .nullify, inverse: \GLIWordPairEntity.customFolder)
     public var items: [GLIWordPairEntity] = []
@@ -13,7 +13,7 @@ public final class GLICustomFolderEntity {
     public init(
         id: UUID = UUID(),
         name: String,
-        sourceLanguage: String? = nil,
+        sourceLanguage: String,
         targetLanguage: String? = nil
     ) {
         self.id = id

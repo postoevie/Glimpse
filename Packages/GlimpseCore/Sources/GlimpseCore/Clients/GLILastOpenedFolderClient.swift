@@ -1,30 +1,95 @@
 import Foundation
 import IssueReporting
 
-/// Persists the last opened folder (language or Unsorted) or root for cold-launch resume.
+/// Last opened folder destination for cold-launch resume: language or custom, plus UUID.
 /// Does not store navigation path, card, sheet, search, or scroll state.
+///
+/// Wire format (single string): `language:<uuid>` or `custom:<uuid>`.
+public enum GLILastOpenedFolder: Equatable, Sendable, Codable {
+    case language(UUID)
+    case custom(UUID)
+
+    private static let languagePrefix = "language:"
+    private static let customPrefix = "custom:"
+
+    public var id: UUID {
+        switch self {
+        case .language(let id), .custom(let id):
+            return id
+        }
+    }
+
+    /// Canonical UserDefaults string for this destination (`language:` / `custom:` prefixed).
+    public var persistedString: String {
+        switch self {
+        case .language(let id):
+            return Self.languagePrefix + id.uuidString
+        case .custom(let id):
+            return Self.customPrefix + id.uuidString
+        }
+    }
+
+    /// Parses a stored string. Accepts only `language:<uuid>` or `custom:<uuid>`.
+    public init?(persistedString raw: String) {
+        if raw.hasPrefix(Self.languagePrefix) {
+            let idPart = String(raw.dropFirst(Self.languagePrefix.count))
+            guard let id = UUID(uuidString: idPart) else { return nil }
+            self = .language(id)
+            return
+        }
+
+        if raw.hasPrefix(Self.customPrefix) {
+            let idPart = String(raw.dropFirst(Self.customPrefix.count))
+            guard let id = UUID(uuidString: idPart) else { return nil }
+            self = .custom(id)
+            return
+        }
+
+        return nil
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(persistedString)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        guard let value = Self(persistedString: raw) else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid last-opened folder string: \(raw)"
+            )
+        }
+        self = value
+    }
+}
+
+/// Persists the last opened folder (kind + id) or root for cold-launch resume.
 public struct GLILastOpenedFolderClient: Sendable {
-    /// Loads the stored folder ID, or `nil` for root.
+    /// Loads the stored destination, or `nil` for root.
     /// Missing, malformed, or cleared values yield `nil` (root).
-    public var load: @Sendable () -> UUID?
-    /// Persists a folder ID as the resume destination.
-    public var saveFolder: @Sendable (UUID) -> Void
+    public var load: @Sendable () -> GLILastOpenedFolder?
+    /// Persists a folder destination as the resume target.
+    public var save: @Sendable (GLILastOpenedFolder) -> Void
     /// Clears persistence so the next cold launch opens root.
     public var clearToRoot: @Sendable () -> Void
 
     public init(
-        load: @escaping @Sendable () -> UUID?,
-        saveFolder: @escaping @Sendable (UUID) -> Void,
+        load: @escaping @Sendable () -> GLILastOpenedFolder?,
+        save: @escaping @Sendable (GLILastOpenedFolder) -> Void,
         clearToRoot: @escaping @Sendable () -> Void
     ) {
         self.load = load
-        self.saveFolder = saveFolder
+        self.save = save
         self.clearToRoot = clearToRoot
     }
 }
 
 extension GLILastOpenedFolderClient {
-    /// Stable App Group `UserDefaults` key for the last opened folder ID.
+    /// Stable App Group `UserDefaults` key for the last opened folder.
+    /// Value format is owned by ``GLILastOpenedFolder/persistedString``.
     public static let storageKey = "lastOpenedFolderID"
 
     public static func live(suiteName: String = GLIAppGroup.identifier) -> GLILastOpenedFolderClient {
@@ -42,22 +107,24 @@ extension GLILastOpenedFolderClient {
                 guard defaults.object(forKey: storageKey) != nil else {
                     return nil
                 }
-                guard
-                    let raw = defaults.string(forKey: storageKey),
-                    let folderID = UUID(uuidString: raw)
-                else {
-                    reportIssue("Malformed last-opened folder ID; clearing to root")
+                guard let raw = defaults.string(forKey: storageKey) else {
+                    reportIssue("Malformed last-opened folder; clearing to root")
                     defaults.removeObject(forKey: storageKey)
                     return nil
                 }
-                return folderID
+                guard let destination = GLILastOpenedFolder(persistedString: raw) else {
+                    reportIssue("Malformed last-opened folder; clearing to root")
+                    defaults.removeObject(forKey: storageKey)
+                    return nil
+                }
+                return destination
             },
-            saveFolder: { folderID in
+            save: { destination in
                 guard let defaults = UserDefaults(suiteName: suiteName) else {
                     reportIssue("App Group UserDefaults suite unavailable for last-opened folder")
                     return
                 }
-                defaults.set(folderID.uuidString, forKey: storageKey)
+                defaults.set(destination.persistedString, forKey: storageKey)
             },
             clearToRoot: {
                 guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -70,11 +137,11 @@ extension GLILastOpenedFolderClient {
     }
 
     /// In-memory client for tests and previews.
-    public static func inMemory(initialFolderID: UUID? = nil) -> GLILastOpenedFolderClient {
-        let storage = InMemoryStorage(folderID: initialFolderID)
+    public static func inMemory(initial: GLILastOpenedFolder? = nil) -> GLILastOpenedFolderClient {
+        let storage = InMemoryStorage(destination: initial)
         return GLILastOpenedFolderClient(
             load: { storage.load() },
-            saveFolder: { storage.saveFolder($0) },
+            save: { storage.save($0) },
             clearToRoot: { storage.clearToRoot() }
         )
     }
@@ -83,7 +150,7 @@ extension GLILastOpenedFolderClient {
     private static var rootOnly: GLILastOpenedFolderClient {
         GLILastOpenedFolderClient(
             load: { nil },
-            saveFolder: { _ in },
+            save: { _ in },
             clearToRoot: {}
         )
     }
@@ -93,27 +160,27 @@ extension GLILastOpenedFolderClient {
 
 private final class InMemoryStorage: @unchecked Sendable {
     private let lock = NSLock()
-    private var folderID: UUID?
+    private var destination: GLILastOpenedFolder?
 
-    init(folderID: UUID?) {
-        self.folderID = folderID
+    init(destination: GLILastOpenedFolder?) {
+        self.destination = destination
     }
 
-    func load() -> UUID? {
+    func load() -> GLILastOpenedFolder? {
         lock.lock()
         defer { lock.unlock() }
-        return folderID
+        return destination
     }
 
-    func saveFolder(_ id: UUID) {
+    func save(_ destination: GLILastOpenedFolder) {
         lock.lock()
         defer { lock.unlock() }
-        folderID = id
+        self.destination = destination
     }
 
     func clearToRoot() {
         lock.lock()
         defer { lock.unlock() }
-        folderID = nil
+        destination = nil
     }
 }

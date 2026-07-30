@@ -3,6 +3,7 @@ import SwiftData
 
 public enum GLICustomFoldersError: Error, Equatable, Sendable {
     case emptyName
+    case invalidSourceLanguage
     case folderNotFound(UUID)
 }
 
@@ -72,6 +73,20 @@ public actor GLIModelActor {
         }
     }
 
+    /// Single language folder by id. Missing id yields `nil`.
+    public func fetchLanguageFolder(id: UUID) throws -> GLILanguageFolder? {
+        var descriptor = FetchDescriptor<GLILanguageFolderEntity>(
+            predicate: #Predicate { folder in
+                folder.id == id
+            }
+        )
+        descriptor.fetchLimit = 1
+        guard let entity = try modelContext.fetch(descriptor).first else {
+            return nil
+        }
+        return GLILanguageFolder(id: entity.id, languageCode: entity.languageCode)
+    }
+
     /// Custom folders ordered by name (ascending). Entity has no `createdAt`.
     public func fetchCustomFolders() throws -> [GLICustomFolder] {
         let descriptor = FetchDescriptor<GLICustomFolderEntity>(
@@ -80,14 +95,30 @@ public actor GLIModelActor {
         return try modelContext.fetch(descriptor).map(Self.mapCustomFolder)
     }
 
-    public func createCustomFolder(name: String) throws -> GLICustomFolder {
+    /// Single custom folder by id. Missing id yields `nil`.
+    public func fetchCustomFolder(id: UUID) throws -> GLICustomFolder? {
+        var descriptor = FetchDescriptor<GLICustomFolderEntity>(
+            predicate: #Predicate { folder in
+                folder.id == id
+            }
+        )
+        descriptor.fetchLimit = 1
+        guard let entity = try modelContext.fetch(descriptor).first else {
+            return nil
+        }
+        return Self.mapCustomFolder(entity)
+    }
+
+    public func createCustomFolder(name: String, sourceLanguage: String) throws -> GLICustomFolder {
         let trimmedName = try Self.validatedFolderName(name)
-        let entity = GLICustomFolderEntity(name: trimmedName)
+        let languageCode = try Self.validatedSourceLanguage(sourceLanguage)
+        let entity = GLICustomFolderEntity(name: trimmedName, sourceLanguage: languageCode)
         modelContext.insert(entity)
         try modelContext.save()
         return Self.mapCustomFolder(entity)
     }
 
+    /// Renames only. Does not change `sourceLanguage`.
     public func renameCustomFolder(id: UUID, name: String) throws -> GLICustomFolder {
         let trimmedName = try Self.validatedFolderName(name)
         let entity = try fetchCustomFolderEntity(id: id)
@@ -176,7 +207,6 @@ public actor GLIModelActor {
     }
 
     private func fetchCustomFolderEntity(id: UUID) throws -> GLICustomFolderEntity {
-        let id = id
         var descriptor = FetchDescriptor<GLICustomFolderEntity>(
             predicate: #Predicate { folder in
                 folder.id == id
@@ -191,7 +221,6 @@ public actor GLIModelActor {
     }
 
     private func fetchWordEntity(id: GLIWordPair.ID) throws -> GLIWordPairEntity {
-        let id = id
         var descriptor = FetchDescriptor<GLIWordPairEntity>(
             predicate: #Predicate { wordPair in
                 wordPair.id == id
@@ -256,6 +285,13 @@ public actor GLIModelActor {
             throw GLICustomFoldersError.emptyName
         }
         return trimmed
+    }
+
+    private static func validatedSourceLanguage(_ code: String) throws -> String {
+        guard let normalized = GLILanguageCodes.normalizedSystemCode(code) else {
+            throw GLICustomFoldersError.invalidSourceLanguage
+        }
+        return normalized
     }
 
     private static func normalizedLanguageCode(_ code: String?) -> String? {
