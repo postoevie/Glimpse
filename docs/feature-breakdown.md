@@ -156,7 +156,7 @@ flowchart LR
 - [ ] `text` required; translation optional; example starts blank.
 - [ ] Source language auto-detected; user may override when UI allows; `null` + Unsorted if detection fails and user skips pick.
 - [ ] Target language defaults to source when non-null; editable before save.
-- [ ] Default custom folder prefilled when language gate matches (folder source equals non-null pending source); user can change or clear; picker offers **all** custom folders (selecting one forces pending source). Pending `null` never auto-prefills a default.
+- [ ] Default custom folder **always** prefilled on Add from **root** / Unsorted when one exists (forces pending source); language-folder Add prefills default only when sources match; user can change or clear; picker offers **all** custom folders (selecting one forces pending source).
 - [ ] Selecting a custom folder sets pending source to folder `sourceLanguage` (not editable / not clearable to null while selected) and may prefill target; target still editable before save. Clearing folder selection restores normal source rules.
 - [ ] Add from folder detail uses the same sheet; language folder or custom → source (and default target) prefilled and source locked; Unsorted → same detection/manual as root.
 - [ ] Save is fire-and-forget — no confirmation step; item appears in language folder (+ custom if chosen) and search index immediately.
@@ -244,7 +244,7 @@ flowchart LR
 - [ ] One built-in folder per language code used; Unsorted for `null` source.
 - [ ] Listed on root (language folders first); no rename/delete UI.
 - [ ] Folder detail lists Items whose `sourceLanguage` maps to that folder (Unsorted shows `null`-source items).
-- [ ] Assignment at capture; change only via F2.4 Unsorted resolve.
+- [ ] Assignment follows `sourceLanguage` at capture and whenever source changes (including F2.4 Unsorted resolve and later card edit).
 
 **Depends on:** X1
 
@@ -284,32 +284,33 @@ flowchart LR
 **Acceptance criteria:**
 - [ ] At most one custom folder per Item; manual assign/remove only.
 - [ ] Picker shows folders whose `sourceLanguage` matches the Item’s non-null source.
-- [ ] Does not change Item `sourceLanguage`, language folder, or `targetLanguage`.
+- [ ] Does not by itself change Item `sourceLanguage`, language folder, or `targetLanguage`.
 - [ ] Adding Item may update folder `targetLanguage` (from Item target); does **not** change folder `sourceLanguage` (set at create).
 - [ ] Re-file into a folder updates default custom folder (F2.5).
-- [ ] **Not available** on Unsorted cards until F2.4 resolve used (Unsorted uses resolve path instead).
+- [ ] **Not available** on Unsorted (`null` source) cards — those use F2.4 Path B instead.
+- [ ] Changing Item source elsewhere (F4.1) clears membership when sources no longer match (invariant 3).
 
 **Depends on:** X1, F2.2, F4.1, F2.5
 
 ---
 
-### F2.4 — Unsorted resolve (once per card)
+### F2.4 — Unsorted resolve (null-source cards)
 
-**User value:** Intentionally leave Unsorted by picking a language or custom folder — one chance per card.
+**User value:** Leave Unsorted by setting source language or picking a custom folder (Path B adopts folder source).
 
 | | |
 |---|---|
-| **Surfaces** | Card detail — Unsorted-only actions |
+| **Surfaces** | Card detail — Unsorted-oriented actions while source is null |
 | **Domain** | Unsorted resolve; invariants 3, 9, 13 |
 | **Refs** | PRD §2; Flow 2 step 4; Flow 4 step 1; IA §Card detail |
 
 **Acceptance criteria:**
-- [ ] Shown only when `sourceLanguage` is `null` and resolve not yet consumed.
-- [ ] **Move to language folder:** user picks language → `sourceLanguage` set → language folder updated; custom folder unchanged.
+- [ ] Shown when `sourceLanguage` is `null`.
+- [ ] **Set source language:** user picks language → `sourceLanguage` set → language folder updated; custom folder unchanged.
 - [ ] **Move to custom folder:** user picks folder → Item filed; **always adopts** folder’s required `sourceLanguage` (and moves language folder). Always leaves Item source non-null.
 - [ ] Does not change Item `targetLanguage`.
-- [ ] After either action, Unsorted-only actions hidden permanently for that Item.
-- [ ] Not shown on non-Unsorted cards.
+- [ ] After source is non-null, normal re-file applies; **source remains editable** (language folder follows; clear custom folder on mismatch — invariant 3).
+- [ ] Non-Unsorted cards use editable source + re-file, not Unsorted Path B.
 
 **Depends on:** X1, F2.1, F2.2, F4.1
 
@@ -322,15 +323,16 @@ flowchart LR
 | | |
 |---|---|
 | **Surfaces** | In-app capture prefilled picker; widget/Share silent apply |
-| **Domain** | Default custom folder rules; language gate |
+| **Domain** | Default custom folder rules; root always-prefill; language gate for widget/Share + language-folder Add |
 | **Refs** | PRD §1–§2; domain §Default custom folder |
 
 **Acceptance criteria:**
 - [ ] Tracks last folder used at capture/re-file or manually chosen on add view.
-- [ ] In-app add: prefilled only when default folder source equals pending non-null source; pending `null` never auto-prefills.
+- [ ] In-app Add from **root** / Unsorted: **always** prefill default when one exists (forces pending source from the folder).
+- [ ] In-app Add from **language-folder** detail: prefill default only when sources match.
 - [ ] Widget/Share: applied on save when detection is non-null and matches default folder source; otherwise no custom folder.
 - [ ] Cleared when that folder is deleted.
-- [ ] Gate: apply only when default folder source equals pending/detected non-null source; otherwise skip.
+- [ ] Language gate (match non-null source): widget/Share silent apply and language-folder Add default prefill only — **not** root / Unsorted in-app prefill.
 
 **Depends on:** X1, F2.2
 
@@ -413,8 +415,9 @@ flowchart LR
 | **Refs** | PRD §4; Flow 4; domain §Item |
 
 **Acceptance criteria:**
-- [ ] Shows `text`, `translation`, `example`, read-only source (or unknown), editable target, folder membership.
-- [ ] Edit `text`, `translation`, `example`, `targetLanguage` inline or on-screen; source does not re-detect when `text` changes.
+- [ ] Shows `text`, `translation`, `example`, editable source (or unknown if null), editable target, folder membership.
+- [ ] Edit `text`, `translation`, `example`, `targetLanguage`, **`sourceLanguage`** inline or on-screen; source does not re-detect when `text` changes.
+- [ ] Changing `sourceLanguage` updates the language folder; **if a custom folder is selected and the new source does not match it, clear custom membership.**
 - [ ] Target edit updates custom folder's `targetLanguage` if filed in one — not vice versa.
 - [ ] Delete item removes from language folder, custom folder, and search index.
 - [ ] Unsorted vs non-Unsorted folder actions per F2.3 / F2.4.

@@ -14,7 +14,7 @@
 
 - Built-in per-language folders (auto, permanent, listed first) and custom folders (user-created, flat, no nesting) below. A persistent search bar sits above the list.
   - Search is **always global** — typing here searches the whole vocabulary regardless of which folder you're looking at, per PRD §3. It's a bar on the root screen, not a separate screen you navigate into.
-- **Capture entry (root):** a persistent "add" action opens the in-app capture sheet — **default custom folder prefilled** when language gate matches (folder source equals non-null pending source); optional translation, source/target pickers (source not editable while a custom folder is selected), folder picker (**all** custom folders — selection forces source). The **same sheet** is also opened from folder detail (see below).
+- **Capture entry (root):** a persistent "add" action opens the in-app capture sheet — **default custom folder always prefilled** when one exists (forces pending source to that folder's language); optional translation, source/target pickers (source not editable while a custom folder is selected), folder picker (**all** custom folders — selection forces source). The **same sheet** is also opened from folder detail (see below).
 - **"New folder"** action lives here too — **name and source language required**; `targetLanguage` optional (from cards later). Empty folders are valid.
 
 ## Folder detail screen
@@ -22,7 +22,7 @@
 - Items inside one folder (language or custom), pushed from the root.
 - Actions: **Add** (same capture sheet as root), **Shuffle**, **Study this folder**, and for custom folders, folder management — **rename or delete only** (`sourceLanguage` set at create, immutable, always a real language code; `targetLanguage` is optional and shown but not directly editable — it follows cards). Empty folders show an empty list.
 - **Add from folder detail:** opens the same in-app capture sheet with **source (and default target) prefilled from this folder** when the folder has a `sourceLanguage` (language folder, or custom folder — always has source) — source not editable while that context applies. **Unsorted:** source stays unset / detectable as on root. Save still follows Flow 1 placement rules.
-- Language folders have no management UI — they're auto-created and permanent; an item's language folder is set at capture and **may change once** via Unsorted resolve; otherwise fixed.
+- Language folders have no management UI — they're auto-created and permanent; an item's language folder **follows `sourceLanguage`** (capture, Unsorted resolve, or later card edit).
 
 ## Search results
 
@@ -33,8 +33,8 @@
 
 Reached from folder detail, search results, or mid-study (Flow 5) — one screen regardless of entry point. Shows word/phrase, translation field, example field, related items, and the on-demand actions (generate/edit translation, generate/edit example, discover similar, edit target language) exactly as specified in PRD §4.
 
-- **Unsorted cards** (`sourceLanguage` null, resolve not used): **Move to language folder** and **Move to custom folder** — Unsorted-only, **once per card** (see domain model). Normal custom-folder picker hidden until resolve is used (or source is set).
-- **Non-Unsorted cards:** custom-folder re-file only; no move-to-language-folder action.
+- **Unsorted cards** (`sourceLanguage` null): set source and/or **Move to custom folder** (Path B adopts folder source — see domain model). Normal re-file when source is non-null.
+- **Non-Unsorted cards:** source editable; custom-folder re-file; changing source clears custom membership if sources no longer match.
 - **Generate translation** and **discover similar** each present a small picker of candidates before anything is saved — both require **non-null `sourceLanguage`**. **Generate example** saves its single result directly, no picker — same gate. Manual translation/example entry still allowed on `null`-source cards. Same screen hosts both patterns — no separate screen needed for the picker (e.g. an inline sheet or list).
 
 - **Mid-study jump to Card detail** is a push on top of the deck, not a navigation reset — the deck position underneath is preserved for that session. This is distinct from the app-level resume rule, which only governs what happens on app relaunch, not same-session detours.

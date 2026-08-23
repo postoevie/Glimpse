@@ -7,6 +7,11 @@ public enum GLICustomFoldersError: Error, Equatable, Sendable {
     case folderNotFound(UUID)
 }
 
+public enum GLIWordPairMembershipError: Error, Equatable, Sendable {
+    /// Item source language does not match the custom folder’s source.
+    case sourceMismatch
+}
+
 @ModelActor
 public actor GLIModelActor {
     public func fetchWordPairs() throws -> [GLIWordPair] {
@@ -139,6 +144,131 @@ public actor GLIModelActor {
         }
     }
 
+    /// Sets or clears the word pair’s custom-folder membership at capture time.
+    /// Same membership rule as `updateCustomFolder`: requires the item’s source (if already
+    /// set) to match the folder’s source, and adopts the folder’s source/language folder when
+    /// the item has none yet.
+    /// When assigning and `wordTargetLanguage` is non-empty, updates the folder’s cached target language.
+    public func assignCustomFolder(
+        wordPairID: GLIWordPair.ID,
+        customFolderID: UUID?,
+        wordTargetLanguage: String?
+    ) throws {
+        let wordEntity = try fetchWordEntity(id: wordPairID)
+
+        guard let customFolderID else {
+            wordEntity.customFolder = nil
+            try modelContext.save()
+            return
+        }
+
+        let folderEntity = try fetchCustomFolderEntity(id: customFolderID)
+        let folderSource = try Self.matchingMembershipFolderSource(
+            itemSource: wordEntity.sourceLanguage,
+            folderEntity: folderEntity
+        )
+
+        if wordEntity.sourceLanguage == nil {
+            let languageFolder = try findOrCreateLanguageFolder(languageCode: folderSource)
+            wordEntity.sourceLanguage = folderSource
+            wordEntity.languageFolder = languageFolder
+        }
+        wordEntity.customFolder = folderEntity
+
+        if let targetLanguage = Self.normalizedLanguageCode(wordTargetLanguage) {
+            folderEntity.targetLanguage = targetLanguage
+        }
+
+        try modelContext.save()
+    }
+
+    /// Edits item `sourceLanguage`; language folder always follows.
+    /// Clears custom-folder membership when the new source is nil or does not match the folder’s source.
+    /// Does not change `targetLanguage`. Source is always editable (including clearing to Unsorted).
+    public func updateSource(
+        wordPairID: GLIWordPair.ID,
+        sourceLanguage: String?
+    ) throws -> GLIWordPair {
+        let wordEntity = try fetchWordEntity(id: wordPairID)
+
+        // Validate the new source before mutating the entity — the only throwing step in this
+        // function — so a rejected input never leaves the entity dirtied-but-unsaved on this
+        // actor's shared ModelContext.
+        let sourceCode = try Self.normalizedLanguageCode(sourceLanguage).map(Self.validatedSourceLanguage)
+
+        let shouldClearCustomFolder: Bool
+        if let customFolder = wordEntity.customFolder {
+            let folderSource = Self.persistedSourceLanguage(customFolder.sourceLanguage)
+            shouldClearCustomFolder = sourceCode == nil || folderSource != sourceCode
+        } else {
+            shouldClearCustomFolder = false
+        }
+
+        let languageFolder = try findOrCreateLanguageFolder(
+            languageCode: sourceCode ?? GLILanguageFolder.unsortedCode
+        )
+
+        wordEntity.sourceLanguage = sourceCode
+        wordEntity.languageFolder = languageFolder
+        if shouldClearCustomFolder {
+            wordEntity.customFolder = nil
+        }
+
+        try modelContext.save()
+        return Self.mapWordPair(wordEntity)
+    }
+
+    /// Sets or clears custom-folder membership.
+    /// When the item has no source, adopts the folder’s source and language folder.
+    /// When the item already has a source, requires a match with the folder’s source.
+    /// Syncs folder target from the item target when present. Does not change item target.
+    public func updateCustomFolder(
+        wordPairID: GLIWordPair.ID,
+        customFolderID: UUID?
+    ) throws -> GLIWordPair {
+        let wordEntity = try fetchWordEntity(id: wordPairID)
+
+        guard let customFolderID else {
+            wordEntity.customFolder = nil
+            try modelContext.save()
+            return Self.mapWordPair(wordEntity)
+        }
+
+        let folderEntity = try fetchCustomFolderEntity(id: customFolderID)
+        let folderSource = try Self.matchingMembershipFolderSource(
+            itemSource: wordEntity.sourceLanguage,
+            folderEntity: folderEntity
+        )
+
+        if wordEntity.sourceLanguage != nil {
+            wordEntity.customFolder = folderEntity
+        } else {
+            let languageFolder = try findOrCreateLanguageFolder(languageCode: folderSource)
+            wordEntity.sourceLanguage = folderSource
+            wordEntity.languageFolder = languageFolder
+            wordEntity.customFolder = folderEntity
+        }
+
+        if let targetLanguage = Self.normalizedLanguageCode(wordEntity.targetLanguage) {
+            folderEntity.targetLanguage = targetLanguage
+        }
+
+        try modelContext.save()
+        return Self.mapWordPair(wordEntity)
+    }
+
+    /// Deletes language folders that have no words, including Unsorted.
+    /// Does not delete custom folders.
+    public func pruneEmptyLanguageFolders() throws {
+        let folders = try modelContext.fetch(FetchDescriptor<GLILanguageFolderEntity>())
+        let emptyFolders = folders.filter(\.items.isEmpty)
+        guard !emptyFolders.isEmpty else { return }
+        for folder in emptyFolders {
+            modelContext.delete(folder)
+        }
+        try modelContext.save()
+    }
+
     public func saveWordPair(_ pair: GLIWordPair) throws {
         let sourceLanguage = Self.normalizedLanguageCode(pair.sourceLanguage)
         let targetLanguage = Self.normalizedLanguageCode(pair.targetLanguage)
@@ -188,7 +318,7 @@ public actor GLIModelActor {
         }
     }
 
-    private func findOrCreateLanguageFolder(languageCode: String) throws -> GLILanguageFolderEntity {
+    public func findOrCreateLanguageFolder(languageCode: String) throws -> GLILanguageFolderEntity {
         let code = languageCode
         var descriptor = FetchDescriptor<GLILanguageFolderEntity>(
             predicate: #Predicate { folder in
@@ -206,7 +336,7 @@ public actor GLIModelActor {
         return folder
     }
 
-    private func fetchCustomFolderEntity(id: UUID) throws -> GLICustomFolderEntity {
+    public func fetchCustomFolderEntity(id: UUID) throws -> GLICustomFolderEntity {
         var descriptor = FetchDescriptor<GLICustomFolderEntity>(
             predicate: #Predicate { folder in
                 folder.id == id
@@ -220,7 +350,7 @@ public actor GLIModelActor {
         return entity
     }
 
-    private func fetchWordEntity(id: GLIWordPair.ID) throws -> GLIWordPairEntity {
+    public func fetchWordEntity(id: GLIWordPair.ID) throws -> GLIWordPairEntity {
         var descriptor = FetchDescriptor<GLIWordPairEntity>(
             predicate: #Predicate { wordPair in
                 wordPair.id == id
@@ -234,7 +364,7 @@ public actor GLIModelActor {
         return entity
     }
 
-    private func fetchExampleEntity(wordID: GLIWordPair.ID) throws -> GLIWordExampleEntity? {
+    public func fetchExampleEntity(wordID: GLIWordPair.ID) throws -> GLIWordExampleEntity? {
         let wordID = wordID
         var descriptor = FetchDescriptor<GLIWordExampleEntity>(
             predicate: #Predicate { example in
@@ -245,7 +375,7 @@ public actor GLIModelActor {
         return try modelContext.fetch(descriptor).first
     }
 
-    private func upsertExample(wordID: GLIWordPair.ID, text: String) throws {
+    public func upsertExample(wordID: GLIWordPair.ID, text: String) throws {
         if let example = try fetchExampleEntity(wordID: wordID) {
             example.text = text
             example.updatedAt = .now
@@ -260,17 +390,18 @@ public actor GLIModelActor {
         )
     }
 
-    private static func mapWordPair(_ entity: GLIWordPairEntity) -> GLIWordPair {
+    public static func mapWordPair(_ entity: GLIWordPairEntity) -> GLIWordPair {
         GLIWordPair(
             id: entity.id,
             word: entity.word,
             translation: entity.translation,
             sourceLanguage: entity.sourceLanguage,
-            targetLanguage: entity.targetLanguage
+            targetLanguage: entity.targetLanguage,
+            customFolderID: entity.customFolder?.id
         )
     }
 
-    private static func mapCustomFolder(_ entity: GLICustomFolderEntity) -> GLICustomFolder {
+    public static func mapCustomFolder(_ entity: GLICustomFolderEntity) -> GLICustomFolder {
         GLICustomFolder(
             id: entity.id,
             name: entity.name,
@@ -279,7 +410,7 @@ public actor GLIModelActor {
         )
     }
 
-    private static func validatedFolderName(_ name: String) throws -> String {
+    public static func validatedFolderName(_ name: String) throws -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw GLICustomFoldersError.emptyName
@@ -287,18 +418,46 @@ public actor GLIModelActor {
         return trimmed
     }
 
-    private static func validatedSourceLanguage(_ code: String) throws -> String {
+    public static func validatedSourceLanguage(_ code: String) throws -> String {
         guard let normalized = GLILanguageCodes.normalizedSystemCode(code) else {
             throw GLICustomFoldersError.invalidSourceLanguage
         }
         return normalized
     }
 
-    private static func normalizedLanguageCode(_ code: String?) -> String? {
+    public static func normalizedLanguageCode(_ code: String?) -> String? {
         guard let code else {
             return nil
         }
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Canonical form of an already-persisted source code for comparison only — never throws.
+    /// Neither word nor custom-folder source is guaranteed to still be OS-recognized:
+    /// `saveWordPair` never validates on write, and a folder's source — though validated at
+    /// `createCustomFolder` time — can still fall out of the OS's recognized set later (locale
+    /// tables change across OS versions). Re-validating either side here would permanently
+    /// block membership changes for that word/folder. Falls back to the raw stored value when
+    /// unrecognized, so equality still works for the common case.
+    public static func persistedSourceLanguage(_ code: String) -> String {
+        GLILanguageCodes.normalizedSystemCode(code) ?? code
+    }
+
+    /// Shared custom-folder membership rule: an item with a known source may only join a
+    /// folder whose source matches — compared leniently via `persistedSourceLanguage` on both
+    /// sides, not `validatedSourceLanguage`. Used by both `updateCustomFolder` and
+    /// `assignCustomFolder` so the rule can't drift out of sync between them.
+    public static func matchingMembershipFolderSource(
+        itemSource: String?,
+        folderEntity: GLICustomFolderEntity
+    ) throws -> String {
+        let folderSource = Self.persistedSourceLanguage(folderEntity.sourceLanguage)
+        if let itemSource {
+            guard Self.persistedSourceLanguage(itemSource) == folderSource else {
+                throw GLIWordPairMembershipError.sourceMismatch
+            }
+        }
+        return folderSource
     }
 }

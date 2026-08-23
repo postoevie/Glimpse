@@ -54,7 +54,7 @@ Canonical product docs: `docs/` (see `AGENTS.md`). Live checkmarks for *which st
 |---|---|---|
 | I0 — Scaffold | Done in tree | Owner should confirm packages resolve + app launches |
 | I1 — Core loop | **In progress** | Epic: `docs/planning/l1-capture/I1-capture.md` |
-| I2 — Organize | Not started | |
+| I2 — Organize | **Partial (domain layer only)** | Epic: `docs/planning/l2-organize/I2-organize.md`. `GLIWordPairMembershipClient` (assign/update/prune) promoted from Grab 2026-08-23 — no `GlimpseFeatures` UI yet. |
 | I3 — Find depth | Not started | |
 | I4 — Related | Not started | |
 | I5 — Study | Not started | |
@@ -92,6 +92,14 @@ Milestone: offline demo = I0–I5 complete.
 | Item | Deferred from | Lands in | Owner OK |
 |---|---|---|---|
 | Source/target language UI + detection at capture | I1-T1 (full F1.1) | I1-T2 | Yes — epic build order |
+
+---
+
+## Recent promotes
+
+| Date | Slice | Notes |
+|---|---|---|
+| 2026-08-23 | Custom-folder membership/filing (I2-T2/T3/T4/B8) | `GLIWordPairMembershipClient` + `GLIModelActor` additions + `customFolderID` on `GLIWordPair`. Domain layer only. Grab keeps its own parallel implementation — its `WordPair` lacks the `translation` field `GLIWordPair` requires, so Grab could not be retargeted to consume this package without a larger model change; that was declined as out of scope for this promote. |
 
 ---
 

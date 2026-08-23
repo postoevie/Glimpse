@@ -69,7 +69,7 @@ Architecture says *where* code lives. Increment Planning says *in what order* we
 
 |              |                                                                                                                                         |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **Delivers** | Custom folder CRUD, re-file, default custom folder pref, Unsorted resolve UI (once per card)                                            |
+| **Delivers** | Custom folder CRUD, re-file, default custom folder pref, Unsorted resolve UI (null source); editable source + clear custom on mismatch |
 | **Features** | **F2.2**, **F2.3**, **F2.5**, **F2.4**                                                                                                  |
 | **Exit**     | Create custom folder; assign from capture/card; resolve Unsorted via language or custom path; default folder prefills / gates correctly |
 | **Tests**    | Resolve once; custom membership ≤1; delete folder cascades membership only                                                              |
@@ -225,6 +225,7 @@ I2 and I3 can proceed in parallel after I1. I4 can start after I1 (card detail e
 - Delete-item UI placement — pick during I1 card/list implementation
 - macOS target, CI/CD, TestFlight, pixel polish — Stages 11–13
 - Spaced repetition, sync, OCR, chat — out of v1
+- **CSV** import/export + **iCloud** sync — post–v1 candidates; parked in `docs/planning/future-backlog.md` (F-B1, F-B2)
 
 ---
 

@@ -76,7 +76,7 @@ Maps `docs/domain-modeling.md` entities to `@Model` types. Replaces the Xcode te
 | `translation` | `String` | Default `""` |
 | `example` | `[String]` | SwiftData transformable / codable storage |
 | `createdAt` | `Date` | Default ordering |
-| `unsortedResolveUsed` | `Bool` | Default `false`; set `true` after Unsorted resolve |
+| ~~`unsortedResolveUsed`~~ | — | **Dropped:** source is editable after save; Unsorted UI is gated by `sourceLanguage == nil` only (see domain invariant 3). |
 
 **Relationships**
 
@@ -203,7 +203,7 @@ All calls are **explicitly invoked from TCA effects** on button tap — never on
 ### In-app (F1.1)
 
 - TCA feature: capture sheet from root add action.
-- Runs detection → folder assignment → optional default custom folder pref (UserDefaults + language gate: default folder source equals non-null pending source; selecting any custom folder forces pending source).
+- Runs detection → folder assignment → optional default custom folder pref (UserDefaults; in-app root/Unsorted **always** prefill default when set — forces pending source; language-folder Add and widget/Share still use match gate; selecting any custom folder forces pending source).
 - Saves via `VocabularyStore`.
 
 ### Widget (F1.2)
