@@ -29,15 +29,19 @@ public struct GLIFolderWordsFeature {
         public var languageCode: String?
         public var customFolderName: String?
         public var words: [GLIWordPair]
+        /// First (oldest) meaning text per word, for the row subtitle. Missing keys = no meanings.
+        public var firstMeaningTexts: [GLIWordPair.ID: String]
 
         public init(
             languageCode: String? = nil,
             customFolderName: String? = nil,
-            words: [GLIWordPair] = []
+            words: [GLIWordPair] = [],
+            firstMeaningTexts: [GLIWordPair.ID: String] = [:]
         ) {
             self.languageCode = languageCode
             self.customFolderName = customFolderName
             self.words = words
+            self.firstMeaningTexts = firstMeaningTexts
         }
     }
 
@@ -50,6 +54,8 @@ public struct GLIFolderWordsFeature {
     public struct State: Equatable {
         public var identity: FolderIdentity
         public var words: IdentifiedArrayOf<GLIWordPair>
+        /// First (oldest) meaning text per word, for the row subtitle. Missing keys = no meanings.
+        public var firstMeaningTexts: [GLIWordPair.ID: String] = [:]
         /// Resolved for `.language` identity after load; drives title + add-word prefill.
         public var languageCode: String?
         /// Resolved for `.custom` identity after load; drives navigation title.
@@ -65,6 +71,7 @@ public struct GLIFolderWordsFeature {
         public init(
             identity: FolderIdentity,
             words: IdentifiedArrayOf<GLIWordPair> = [],
+            firstMeaningTexts: [GLIWordPair.ID: String] = [:],
             languageCode: String? = nil,
             customFolderName: String? = nil,
             hasCompletedInitialLoad: Bool = false,
@@ -74,6 +81,7 @@ public struct GLIFolderWordsFeature {
         ) {
             self.identity = identity
             self.words = words
+            self.firstMeaningTexts = firstMeaningTexts
             self.languageCode = languageCode
             self.customFolderName = customFolderName
             self.hasCompletedInitialLoad = hasCompletedInitialLoad
@@ -131,6 +139,7 @@ public struct GLIFolderWordsFeature {
     @Dependency(\.wordPairs) var wordPairs
     @Dependency(\.languageFolders) var languageFolders
     @Dependency(\.customFolders) var customFolders
+    @Dependency(\.wordMeanings) var wordMeanings
 
     public init() {}
 
@@ -139,13 +148,14 @@ public struct GLIFolderWordsFeature {
             switch action {
             case .onAppear:
                 let identity = state.identity
-                return .run { [wordPairs, languageFolders, customFolders] send in
+                return .run { [wordPairs, languageFolders, customFolders, wordMeanings] send in
                     await send(.contentLoaded(Result {
                         try await Self.loadContent(
                             identity: identity,
                             wordPairs: wordPairs,
                             languageFolders: languageFolders,
-                            customFolders: customFolders
+                            customFolders: customFolders,
+                            wordMeanings: wordMeanings
                         )
                     }))
                     for await _ in wordPairs.changes() {
@@ -154,7 +164,8 @@ public struct GLIFolderWordsFeature {
                                 identity: identity,
                                 wordPairs: wordPairs,
                                 languageFolders: languageFolders,
-                                customFolders: customFolders
+                                customFolders: customFolders,
+                                wordMeanings: wordMeanings
                             )
                         }))
                     }
@@ -165,6 +176,7 @@ public struct GLIFolderWordsFeature {
                 state.languageCode = content.languageCode
                 state.customFolderName = content.customFolderName
                 state.words = IdentifiedArray(uniqueElements: content.words)
+                state.firstMeaningTexts = content.firstMeaningTexts
                 state.hasCompletedInitialLoad = true
                 return .none
 
@@ -181,7 +193,6 @@ public struct GLIFolderWordsFeature {
                     state.addWord = GLIAddWordFeature.State(
                         wordPair: GLIWordPair(
                             word: "",
-                            translation: "",
                             sourceLanguage: code,
                             targetLanguage: code
                         ),
@@ -189,7 +200,7 @@ public struct GLIFolderWordsFeature {
                     )
                 } else {
                     state.addWord = GLIAddWordFeature.State(
-                        wordPair: GLIWordPair(word: "", translation: "")
+                        wordPair: GLIWordPair(word: "")
                     )
                 }
                 return .none
@@ -240,12 +251,20 @@ public struct GLIFolderWordsFeature {
                 return .none
 
             case .addWord(.presented(.delegate(.wordAdded))):
-                guard let pair = state.addWord?.wordPair else {
+                guard let addWordState = state.addWord else {
                     reportIssue("wordAdded delegate without presented child draft")
                     return .none
                 }
-                return .run { [wordPairs] send in
+                let pair = addWordState.wordPair
+                let meaning = GLIWordMeaning.captureMeaning(
+                    text: addWordState.meaningText,
+                    language: pair.targetLanguage
+                )
+                return .run { [wordPairs, wordMeanings] send in
                     try await wordPairs.save(pair)
+                    if let meaning {
+                        try await wordMeanings.replaceAll(pair.id, [meaning])
+                    }
                     await send(.addWord(.dismiss))
                 } catch: { error, _ in
                     reportIssue(error)
@@ -311,7 +330,8 @@ public struct GLIFolderWordsFeature {
         identity: FolderIdentity,
         wordPairs: GLIWordPairsClient,
         languageFolders: GLILanguageFoldersClient,
-        customFolders: GLICustomFoldersClient
+        customFolders: GLICustomFoldersClient,
+        wordMeanings: GLIWordMeaningsClient
     ) async throws -> LoadedContent {
         switch identity {
         case let .language(id):
@@ -319,9 +339,11 @@ public struct GLIFolderWordsFeature {
                 throw LoadError.folderMissing(identity)
             }
             let words = try await wordPairs.fetchWordPairsInFolder(id)
+            let firstMeaningTexts = try await wordMeanings.firstMeanings(words.map(\.id))
             return LoadedContent(
                 languageCode: folder.languageCode,
-                words: words
+                words: words,
+                firstMeaningTexts: firstMeaningTexts
             )
 
         case let .custom(id):
@@ -329,9 +351,11 @@ public struct GLIFolderWordsFeature {
                 throw LoadError.folderMissing(identity)
             }
             let words = try await wordPairs.fetchWordPairsInCustomFolder(id)
+            let firstMeaningTexts = try await wordMeanings.firstMeanings(words.map(\.id))
             return LoadedContent(
                 customFolderName: folder.name,
-                words: words
+                words: words,
+                firstMeaningTexts: firstMeaningTexts
             )
         }
     }

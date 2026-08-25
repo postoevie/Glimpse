@@ -9,7 +9,7 @@ struct GLIWordPairsClientTests {
     @Test("save then fetchWordPairs returns the stored pair")
     func saveThenFetchWordPairs() async throws {
         let client = try GLIWordPairsClient.inMemory()
-        let pair = GLIWordPair(word: "hola", translation: "hello")
+        let pair = GLIWordPair(word: "hola")
 
         try await client.save(pair)
         let loaded = try await client.fetchWordPairs()
@@ -17,14 +17,13 @@ struct GLIWordPairsClientTests {
         #expect(loaded.count == 1)
         #expect(loaded[0].id == pair.id)
         #expect(loaded[0].word == "hola")
-        #expect(loaded[0].translation == "hello")
     }
 
     @Test("duplicate text is allowed as two rows with different ids")
     func duplicateTextAllowed() async throws {
         let client = try GLIWordPairsClient.inMemory()
-        let first = GLIWordPair(word: "hola", translation: "hello")
-        let second = GLIWordPair(word: "hola", translation: "hello")
+        let first = GLIWordPair(word: "hola")
+        let second = GLIWordPair(word: "hola")
 
         #expect(first.id != second.id)
 
@@ -35,21 +34,7 @@ struct GLIWordPairsClientTests {
         #expect(loaded.count == 2)
         let ids = Set(loaded.map(\.id))
         #expect(ids == [first.id, second.id])
-        #expect(loaded.allSatisfy { $0.word == "hola" && $0.translation == "hello" })
-    }
-
-    @Test("word-only pair persists with empty translation")
-    func wordOnlyEmptyTranslation() async throws {
-        let container = try GLIModelContainerFactory.makeInMemory()
-        let actor = GLIModelActor(modelContainer: container)
-        let pair = GLIWordPair(word: "merci", translation: "")
-
-        try await actor.saveWordPair(pair)
-        let loaded = try await actor.fetchWordPairs()
-
-        #expect(loaded.count == 1)
-        #expect(loaded[0].word == "merci")
-        #expect(loaded[0].translation == "")
+        #expect(loaded.allSatisfy { $0.word == "hola" })
     }
 
     @Test("fetchWordPairs on empty store returns empty array")
@@ -86,8 +71,8 @@ struct GLIWordPairsClientTests {
         let wordPairs = GLIWordPairsClient.live(container: container)
         let folders = GLILanguageFoldersClient.live(container: container)
 
-        let esPair = GLIWordPair(word: "hola", translation: "hello", sourceLanguage: "es")
-        let frPair = GLIWordPair(word: "bonjour", translation: "hello", sourceLanguage: "fr")
+        let esPair = GLIWordPair(word: "hola", sourceLanguage: "es")
+        let frPair = GLIWordPair(word: "bonjour", sourceLanguage: "fr")
         try await wordPairs.save(esPair)
         try await wordPairs.save(frPair)
 
@@ -109,14 +94,12 @@ struct GLIWordPairsClientTests {
 
         let older = GLIWordPairEntity(
             word: "old",
-            translation: "viejo",
             sourceLanguage: "es",
             createdAt: Date(timeIntervalSince1970: 1),
             languageFolder: folder
         )
         let newer = GLIWordPairEntity(
             word: "new",
-            translation: "nuevo",
             sourceLanguage: "es",
             createdAt: Date(timeIntervalSince1970: 100),
             languageFolder: folder

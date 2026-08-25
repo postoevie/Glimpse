@@ -18,7 +18,8 @@ struct GLIFolderWordsFeatureTests {
         initialState: GLIFolderWordsFeature.State? = nil,
         wordPairs: GLIWordPairsClient,
         languageFolders: GLILanguageFoldersClient? = nil,
-        customFolders: GLICustomFoldersClient? = nil
+        customFolders: GLICustomFoldersClient? = nil,
+        wordMeanings: GLIWordMeaningsClient? = nil
     ) -> TestStoreOf<GLIFolderWordsFeature> {
         let resolvedLanguageCode = languageCode
         let folderID = folderID
@@ -51,7 +52,12 @@ struct GLIFolderWordsFeatureTests {
             $0.languageDetector = GLILanguageDetectorClient(
                 detectSourceLanguage: { _ in "es" }
             )
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = wordMeanings ?? GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
         }
     }
 
@@ -91,7 +97,7 @@ struct GLIFolderWordsFeatureTests {
 
     @Test("onAppear loads words via fetchWordPairsInFolder into the list")
     func onAppearLoadsWords() async {
-        let pair = GLIWordPair(id: pairID, word: "hola", translation: "hello", sourceLanguage: "es")
+        let pair = GLIWordPair(id: pairID, word: "hola", sourceLanguage: "es")
         let expectedFolderID = folderID
         let fetchedFolderID = LockIsolated<UUID?>(nil)
         let store = makeStore(
@@ -128,9 +134,36 @@ struct GLIFolderWordsFeatureTests {
         #expect(store.state.words.isEmpty)
     }
 
+    @Test("onAppear loads first-meaning text per word for the row subtitle")
+    func onAppearLoadsFirstMeaningTexts() async {
+        let pair = GLIWordPair(id: pairID, word: "hola", sourceLanguage: "es")
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(identity: .language(folderID)),
+            wordPairs: finishedChangesWordPairs(fetchInFolder: { _ in [pair] }),
+            wordMeanings: GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { ids in
+                    #expect(ids == [pairID])
+                    return [pairID: "hello"]
+                },
+                fetchAll: { _ in [:] }
+            )
+        )
+
+        await store.send(.onAppear)
+        await store.receive(\.contentLoaded) {
+            $0.languageCode = "es"
+            $0.words = IdentifiedArray(uniqueElements: [pair])
+            $0.firstMeaningTexts = [pairID: "hello"]
+            $0.hasCompletedInitialLoad = true
+        }
+        await store.finish()
+    }
+
     @Test("onAppear for custom folder loads via fetchWordPairsInCustomFolder")
     func onAppearCustomFolderLoadsWords() async {
-        let pair = GLIWordPair(id: pairID, word: "hola", translation: "hello", sourceLanguage: "es")
+        let pair = GLIWordPair(id: pairID, word: "hola", sourceLanguage: "es")
         let expectedFolderID = folderID
         let fetchedCustomID = LockIsolated<UUID?>(nil)
         let fetchedLanguageID = LockIsolated<UUID?>(nil)
@@ -204,7 +237,6 @@ struct GLIFolderWordsFeatureTests {
         let draft = GLIWordPair(
             id: draftID,
             word: "hola",
-            translation: "hello",
             sourceLanguage: "es",
             targetLanguage: "es"
         )
@@ -256,7 +288,7 @@ struct GLIFolderWordsFeatureTests {
 
         let draft = try #require(store.state.addWord)
         #expect(draft.wordPair.word == "")
-        #expect(draft.wordPair.translation == "")
+        #expect(draft.meaningText == "")
         #expect(draft.wordPair.sourceLanguage == "es")
         #expect(draft.wordPair.targetLanguage == "es")
         #expect(draft.didManuallySetSource == true)
@@ -274,7 +306,7 @@ struct GLIFolderWordsFeatureTests {
 
         let draft = try #require(store.state.addWord)
         #expect(draft.wordPair.word == "")
-        #expect(draft.wordPair.translation == "")
+        #expect(draft.meaningText == "")
         #expect(draft.wordPair.sourceLanguage == nil)
         #expect(draft.wordPair.targetLanguage == nil)
         #expect(draft.didManuallySetSource == false)
@@ -286,7 +318,6 @@ struct GLIFolderWordsFeatureTests {
         let draft = GLIWordPair(
             id: draftID,
             word: "hola",
-            translation: "hello",
             sourceLanguage: "es",
             targetLanguage: "es"
         )
@@ -314,12 +345,45 @@ struct GLIFolderWordsFeatureTests {
         #expect(store.state.addWord == nil)
     }
 
+    @Test("delegate wordAdded with a typed meaning also persists it as meaning #1")
+    func wordAddedWithMeaningPersistsCapturedMeaning() async {
+        let draft = GLIWordPair(id: draftID, word: "hola", sourceLanguage: "es", targetLanguage: "en")
+        let replaced = LockIsolated<(GLIWordPair.ID, [GLIWordMeaning])?>(nil)
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                id: folderID,
+                languageCode: "es",
+                addWord: GLIAddWordFeature.State(
+                    wordPair: draft,
+                    meaningText: "hello",
+                    didManuallySetSource: true
+                )
+            ),
+            wordPairs: finishedChangesWordPairs(),
+            wordMeanings: GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { id, meanings in replaced.setValue((id, meanings)) },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
+        )
+
+        await store.send(.addWord(.presented(.delegate(.wordAdded))))
+        await store.receive(\.addWord.dismiss) {
+            $0.addWord = nil
+        }
+        await store.finish()
+
+        #expect(replaced.value?.0 == draftID)
+        #expect(replaced.value?.1.map(\.text) == ["hello"])
+        #expect(replaced.value?.1.first?.language == "en")
+    }
+
     @Test("wordTapped with known id does not mutate folder state")
     func wordTappedKnownIdIsNoOp() async {
         let pair = GLIWordPair(
             id: pairID,
             word: "hola",
-            translation: "hello",
             sourceLanguage: "es"
         )
         let store = makeStore(

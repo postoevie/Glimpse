@@ -64,7 +64,7 @@ struct GLIWordPairMembershipClientTests {
         let actor = GLIModelActor(modelContainer: container)
         let french = try await actor.createCustomFolder(name: "Paris", sourceLanguage: "fr")
         try await actor.saveWordPair(
-            GLIWordPair(id: wordID, word: "hola", translation: "hello", sourceLanguage: "es", targetLanguage: "en")
+            GLIWordPair(id: wordID, word: "hola", sourceLanguage: "es", targetLanguage: "en")
         )
         let membership = GLIWordPairMembershipClient.live(actor: actor)
 
@@ -83,7 +83,7 @@ struct GLIWordPairMembershipClientTests {
         let actor = GLIModelActor(modelContainer: container)
         let folder = try await actor.createCustomFolder(name: "Travel", sourceLanguage: "es")
         try await actor.saveWordPair(
-            GLIWordPair(id: wordID, word: "hola", translation: "hello", sourceLanguage: nil, targetLanguage: "en")
+            GLIWordPair(id: wordID, word: "hola", sourceLanguage: nil, targetLanguage: "en")
         )
         let membership = GLIWordPairMembershipClient.live(actor: actor)
 
@@ -320,7 +320,7 @@ struct GLIWordPairMembershipClientTests {
     ) async throws {
         let id = UUID()
         try await actor.saveWordPair(
-            GLIWordPair(id: id, word: "seed", translation: "", sourceLanguage: languageCode, targetLanguage: "en")
+            GLIWordPair(id: id, word: "seed", sourceLanguage: languageCode, targetLanguage: "en")
         )
         try await actor.delete(wordID: id)
     }
@@ -330,7 +330,7 @@ struct GLIWordPairMembershipClientTests {
         let container = try GLIModelContainerFactory.makeInMemory()
         let actor = GLIModelActor(modelContainer: container)
         try await actor.saveWordPair(
-            GLIWordPair(id: wordID, word: "hola", translation: "", sourceLanguage: nil, targetLanguage: "en")
+            GLIWordPair(id: wordID, word: "hola", sourceLanguage: nil, targetLanguage: "en")
         )
         return actor
     }
@@ -341,7 +341,7 @@ struct GLIWordPairMembershipClientTests {
         let actor = GLIModelActor(modelContainer: container)
         let folder = try await actor.createCustomFolder(name: "Travel", sourceLanguage: "es")
         try await actor.saveWordPair(
-            GLIWordPair(id: wordID, word: "hola", translation: "", sourceLanguage: "es", targetLanguage: "en")
+            GLIWordPair(id: wordID, word: "hola", sourceLanguage: "es", targetLanguage: "en")
         )
         return (actor, folder.id)
     }

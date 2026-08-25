@@ -39,8 +39,8 @@ public struct GLIFolderWordsView: View {
                                     .font(.body)
                                     .foregroundStyle(.primary)
 
-                                if !word.translation.isEmpty {
-                                    Text(word.translation)
+                                if let meaning = store.firstMeaningTexts[word.id], !meaning.isEmpty {
+                                    Text(meaning)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -57,6 +57,7 @@ public struct GLIFolderWordsView: View {
             }
         }
         .navigationTitle(folderTitle)
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             if !store.identity.isCustom {
                 ToolbarItem(placement: .primaryAction) {
@@ -113,10 +114,10 @@ public struct GLIFolderWordsView: View {
     }
 
     private func accessibilityLabel(for word: GLIWordPair) -> String {
-        if word.translation.isEmpty {
+        guard let meaning = store.firstMeaningTexts[word.id], !meaning.isEmpty else {
             return word.word
         }
-        return "\(word.word), \(word.translation)"
+        return "\(word.word), \(meaning)"
     }
 }
 
@@ -127,8 +128,8 @@ public struct GLIFolderWordsView: View {
                 initialState: GLIFolderWordsFeature.State(
                     id: UUID(),
                     words: [
-                        GLIWordPair(word: "hola", translation: "hello", sourceLanguage: "es"),
-                        GLIWordPair(word: "gracias", translation: "", sourceLanguage: "es"),
+                        GLIWordPair(word: "hola", sourceLanguage: "es"),
+                        GLIWordPair(word: "gracias", sourceLanguage: "es"),
                     ],
                     languageCode: "es",
                     hasCompletedInitialLoad: true

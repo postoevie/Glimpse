@@ -5,7 +5,6 @@ import SwiftData
 public final class GLIWordPairEntity {
     @Attribute(.unique) public var id: UUID
     public var word: String
-    public var translation: String
     public var sourceLanguage: String?
     public var targetLanguage: String?
     public var createdAt: Date
@@ -15,7 +14,6 @@ public final class GLIWordPairEntity {
     public init(
         id: UUID = UUID(),
         word: String,
-        translation: String,
         sourceLanguage: String? = nil,
         targetLanguage: String? = nil,
         createdAt: Date = .now,
@@ -24,7 +22,6 @@ public final class GLIWordPairEntity {
     ) {
         self.id = id
         self.word = word
-        self.translation = translation
         self.sourceLanguage = sourceLanguage
         self.targetLanguage = targetLanguage
         self.createdAt = createdAt

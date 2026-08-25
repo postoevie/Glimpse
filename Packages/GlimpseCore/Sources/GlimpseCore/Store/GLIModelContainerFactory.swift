@@ -6,7 +6,7 @@ public enum GLIModelContainerFactory {
         Schema([
             GLIWordPairEntity.self,
             GLILanguageFolderEntity.self,
-            GLIWordExampleEntity.self,
+            GLIWordMeaningEntity.self,
             GLICustomFolderEntity.self,
         ])
     }

@@ -15,7 +15,7 @@ struct GLIAppFeatureCardReconciliationTests {
     @Test("updated card replaces the preceding folder snapshot without changing navigation")
     func updateReconcilesFolderSnapshot() async throws {
         let original = makeWord(id: wordID, word: "hola")
-        let updated = makeWord(id: wordID, word: "hola!", translation: "hello!")
+        let updated = makeWord(id: wordID, word: "hola!")
         let initialState = makeState(words: [original])
         let pathIDs = Array(initialState.path.ids)
         let folderPathID = try #require(pathIDs.first)
@@ -24,13 +24,17 @@ struct GLIAppFeatureCardReconciliationTests {
             GLIAppFeature()
         } withDependencies: {
             $0.lastOpenedFolder = .inMemory()
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in
                     GLIWordPair(
                         id: update.wordID,
-                        word: update.word,
-                        translation: update.translation
+                        word: update.word
                     )
                 },
                 delete: { _ in }
@@ -69,13 +73,17 @@ struct GLIAppFeatureCardReconciliationTests {
             GLIAppFeature()
         } withDependencies: {
             $0.lastOpenedFolder = .inMemory()
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in
                     GLIWordPair(
                         id: update.wordID,
-                        word: update.word,
-                        translation: update.translation
+                        word: update.word
                     )
                 },
                 delete: { _ in }
@@ -116,10 +124,7 @@ struct GLIAppFeatureCardReconciliationTests {
         )
         state.path.append(
             .wordCard(
-                GLIWordCardFeature.State(
-                    wordPair: words[0],
-                    example: "Example"
-                )
+                GLIWordCardFeature.State(wordPair: words[0])
             )
         )
         return state
@@ -127,13 +132,11 @@ struct GLIAppFeatureCardReconciliationTests {
 
     private func makeWord(
         id: UUID,
-        word: String,
-        translation: String = "translation"
+        word: String
     ) -> GLIWordPair {
         GLIWordPair(
             id: id,
             word: word,
-            translation: translation,
             sourceLanguage: "es",
             targetLanguage: "en"
         )

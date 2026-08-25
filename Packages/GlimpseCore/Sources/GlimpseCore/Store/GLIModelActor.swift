@@ -278,7 +278,6 @@ public actor GLIModelActor {
         let entity = GLIWordPairEntity(
             id: pair.id,
             word: pair.word,
-            translation: pair.translation,
             sourceLanguage: sourceLanguage,
             targetLanguage: targetLanguage,
             languageFolder: folder
@@ -287,35 +286,147 @@ public actor GLIModelActor {
         try modelContext.save()
     }
 
-    /// Stored example text for a word pair. Missing sidecar yields `""`.
-    public func fetchExample(for wordID: GLIWordPair.ID) throws -> String {
-        try fetchExampleEntity(wordID: wordID)?.text ?? ""
-    }
-
-    /// Updates word, translation, target language, and example only.
-    /// Never changes identity, source language, language folder, or creation date.
+    /// Updates word and target language only.
+    /// Never changes identity, source language, language folder, creation date, or meanings —
+    /// meanings persist separately via `replaceMeanings`.
     public func update(_ update: GLIWordCardUpdate) throws -> GLIWordPair {
-        try modelContext.transaction {
-            let wordEntity = try fetchWordEntity(id: update.wordID)
-            wordEntity.word = update.word
-            wordEntity.translation = update.translation
-            wordEntity.targetLanguage = Self.normalizedLanguageCode(update.targetLanguage)
-            try upsertExample(wordID: update.wordID, text: update.example)
-        }
-        return Self.mapWordPair(try fetchWordEntity(id: update.wordID))
+        let wordEntity = try fetchWordEntity(id: update.wordID)
+        wordEntity.word = update.word
+        wordEntity.targetLanguage = Self.normalizedLanguageCode(update.targetLanguage)
+        try modelContext.save()
+        return Self.mapWordPair(wordEntity)
     }
 
-    /// Deletes the word and its example sidecar. Keeps the language folder.
+    /// Deletes the word and its meanings. Keeps the language folder.
     public func delete(wordID: GLIWordPair.ID) throws {
         let wordEntity = try fetchWordEntity(id: wordID)
-        let exampleEntity = try fetchExampleEntity(wordID: wordID)
+        let meaningEntities = try unorderedMeaningEntities(wordPairID: wordID)
 
         try modelContext.transaction {
-            if let exampleEntity {
-                modelContext.delete(exampleEntity)
+            for meaning in meaningEntities {
+                modelContext.delete(meaning)
             }
             modelContext.delete(wordEntity)
         }
+    }
+
+    // MARK: - Meanings
+
+    /// Meanings stored for one word pair, oldest `createdAt` first, then `id`.
+    public func fetchMeanings(wordPairID: GLIWordPair.ID) throws -> [GLIWordMeaning] {
+        try unorderedMeaningEntities(wordPairID: wordPairID)
+            .sorted(by: Self.isMeaningOrderedBefore)
+            .map(Self.mapMeaning)
+    }
+
+    /// Updates rows that still exist, inserts new ids (`createdAt` = now), deletes rows that are gone.
+    /// Passing an empty array leaves the word pair with no meanings.
+    /// An existing row's `createdAt` is never assigned — only `text`, `language`, and `example` change.
+    public func replaceMeanings(wordPairID: GLIWordPair.ID, meanings: [GLIWordMeaning]) throws {
+        try modelContext.transaction {
+            let existing = try unorderedMeaningEntities(wordPairID: wordPairID)
+            var existingByID: [UUID: GLIWordMeaningEntity] = [:]
+            existingByID.reserveCapacity(existing.count)
+            for entity in existing {
+                existingByID[entity.id] = entity
+            }
+
+            var incomingIDs: Set<UUID> = []
+            incomingIDs.reserveCapacity(meanings.count)
+            for meaning in meanings {
+                guard incomingIDs.insert(meaning.id).inserted else {
+                    continue
+                }
+                if let entity = existingByID[meaning.id] {
+                    entity.text = meaning.text
+                    entity.language = meaning.language
+                    entity.example = meaning.example
+                } else {
+                    modelContext.insert(
+                        GLIWordMeaningEntity(
+                            id: meaning.id,
+                            wordPairID: wordPairID,
+                            text: meaning.text,
+                            language: meaning.language,
+                            example: meaning.example
+                        )
+                    )
+                }
+            }
+
+            for entity in existing where !incomingIDs.contains(entity.id) {
+                modelContext.delete(entity)
+            }
+        }
+    }
+
+    /// Oldest meaning text per pair, one fetch for the whole id set. Missing keys = no meanings.
+    public func firstMeaningTexts(for wordPairIDs: [GLIWordPair.ID]) throws -> [GLIWordPair.ID: String] {
+        let entities = try meaningEntities(for: wordPairIDs)
+        var firstMeanings: [GLIWordPair.ID: String] = [:]
+        for entity in entities where firstMeanings[entity.wordPairID] == nil {
+            firstMeanings[entity.wordPairID] = entity.text
+        }
+        return firstMeanings
+    }
+
+    /// All meanings per pair, one fetch for the whole id set. Oldest first. Missing keys = no meanings.
+    public func fetchAllMeanings(
+        for wordPairIDs: [GLIWordPair.ID]
+    ) throws -> [GLIWordPair.ID: [GLIWordMeaning]] {
+        let entities = try meaningEntities(for: wordPairIDs)
+        var meaningsByWordPairID: [GLIWordPair.ID: [GLIWordMeaning]] = [:]
+        for entity in entities {
+            meaningsByWordPairID[entity.wordPairID, default: []].append(Self.mapMeaning(entity))
+        }
+        return meaningsByWordPairID
+    }
+
+    private func unorderedMeaningEntities(
+        wordPairID: GLIWordPair.ID
+    ) throws -> [GLIWordMeaningEntity] {
+        let wordPairID = wordPairID
+        let descriptor = FetchDescriptor<GLIWordMeaningEntity>(
+            predicate: #Predicate { meaning in
+                meaning.wordPairID == wordPairID
+            }
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    /// Oldest first across the id set. Empty input → no fetch.
+    private func meaningEntities(for wordPairIDs: [GLIWordPair.ID]) throws -> [GLIWordMeaningEntity] {
+        let ids = Array(Set(wordPairIDs))
+        guard !ids.isEmpty else {
+            return []
+        }
+        let descriptor = FetchDescriptor<GLIWordMeaningEntity>(
+            predicate: #Predicate<GLIWordMeaningEntity> { meaning in
+                ids.contains(meaning.wordPairID)
+            }
+        )
+        return try modelContext.fetch(descriptor)
+            .sorted(by: Self.isMeaningOrderedBefore)
+    }
+
+    /// Oldest first; equal timestamps break ties with `id` so the order cannot swap across fetches.
+    private static func isMeaningOrderedBefore(
+        _ lhs: GLIWordMeaningEntity,
+        _ rhs: GLIWordMeaningEntity
+    ) -> Bool {
+        if lhs.createdAt != rhs.createdAt {
+            return lhs.createdAt < rhs.createdAt
+        }
+        return lhs.id < rhs.id
+    }
+
+    public static func mapMeaning(_ entity: GLIWordMeaningEntity) -> GLIWordMeaning {
+        GLIWordMeaning(
+            id: entity.id,
+            text: entity.text,
+            language: entity.language,
+            example: entity.example
+        )
     }
 
     public func findOrCreateLanguageFolder(languageCode: String) throws -> GLILanguageFolderEntity {
@@ -364,37 +475,10 @@ public actor GLIModelActor {
         return entity
     }
 
-    public func fetchExampleEntity(wordID: GLIWordPair.ID) throws -> GLIWordExampleEntity? {
-        let wordID = wordID
-        var descriptor = FetchDescriptor<GLIWordExampleEntity>(
-            predicate: #Predicate { example in
-                example.wordID == wordID
-            }
-        )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
-    }
-
-    public func upsertExample(wordID: GLIWordPair.ID, text: String) throws {
-        if let example = try fetchExampleEntity(wordID: wordID) {
-            example.text = text
-            example.updatedAt = .now
-            return
-        }
-
-        modelContext.insert(
-            GLIWordExampleEntity(
-                wordID: wordID,
-                text: text
-            )
-        )
-    }
-
     public static func mapWordPair(_ entity: GLIWordPairEntity) -> GLIWordPair {
         GLIWordPair(
             id: entity.id,
             word: entity.word,
-            translation: entity.translation,
             sourceLanguage: entity.sourceLanguage,
             targetLanguage: entity.targetLanguage,
             customFolderID: entity.customFolder?.id

@@ -11,6 +11,8 @@ public struct GLIAddWordFeature {
     @ObservableState
     public struct State: Equatable {
         public var wordPair: GLIWordPair
+        /// Capture's single meaning line — becomes meaning #1 on save (`GLIWordMeaning.captureMeaning`).
+        public var meaningText: String
         /// User picked source in the UI — skip auto-detection overwrite.
         public var didManuallySetSource: Bool
         /// User picked target in the UI — skip defaulting target from source.
@@ -22,10 +24,12 @@ public struct GLIAddWordFeature {
 
         public init(
             wordPair: GLIWordPair,
+            meaningText: String = "",
             didManuallySetSource: Bool = false,
             didManuallySetTarget: Bool = false
         ) {
             self.wordPair = wordPair
+            self.meaningText = meaningText
             self.didManuallySetSource = didManuallySetSource
             self.didManuallySetTarget = didManuallySetTarget
         }
@@ -34,7 +38,7 @@ public struct GLIAddWordFeature {
     @CasePathable
     public enum Action {
         case wordChanged(String)
-        case translationChanged(String)
+        case meaningTextChanged(String)
         /// Manual source override (`nil` = clear / Unsorted path). Marks source as user-controlled.
         case sourceLanguageChanged(String?)
         /// Manual target override. Marks target as user-controlled.
@@ -73,8 +77,8 @@ public struct GLIAddWordFeature {
                 }
                 .cancellable(id: CancelID.detect, cancelInFlight: true)
 
-            case let .translationChanged(translation):
-                state.wordPair.translation = translation
+            case let .meaningTextChanged(text):
+                state.meaningText = text
                 return .none
 
             case let .sourceLanguageChanged(code):
@@ -101,14 +105,12 @@ public struct GLIAddWordFeature {
             case .doneButtonTapped:
                 let trimmedWord = state.wordPair.word
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                let trimmedTranslation = state.wordPair.translation
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmedWord.isEmpty else {
                     return .none
                 }
                 state.wordPair.word = trimmedWord
-                state.wordPair.translation = trimmedTranslation
-                // Never generate translation — only persist what the user typed.
+                state.meaningText = state.meaningText.trimmingCharacters(in: .whitespacesAndNewlines)
+                // Never generate a meaning — only persist what the user typed.
 
                 if !state.didManuallySetSource {
                     let detected = languageDetector.detectSourceLanguage(trimmedWord)

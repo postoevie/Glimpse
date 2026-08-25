@@ -12,22 +12,19 @@ struct GLICardMutationsTests {
     @Test("update changes editable fields and preserves identity, source, folder, and creation date")
     @MainActor
     func updatePreservesLockedFields() async throws {
-        let container = try makeContainerWithWord(example: "Old example")
+        let container = try makeContainerWithWord(meaningText: "old meaning")
         let actor = GLIModelActor(modelContainer: container)
 
         let updated = try await actor.update(
             GLIWordCardUpdate(
                 wordID: wordID,
                 word: "bonjour",
-                translation: "",
-                targetLanguage: "en",
-                example: ""
+                targetLanguage: "en"
             )
         )
 
         #expect(updated.id == wordID)
         #expect(updated.word == "bonjour")
-        #expect(updated.translation.isEmpty)
         #expect(updated.sourceLanguage == "es")
         #expect(updated.targetLanguage == "en")
 
@@ -35,49 +32,20 @@ struct GLICardMutationsTests {
         #expect(entity.createdAt == createdAt)
         #expect(entity.languageFolder?.id == folderID)
         #expect(entity.languageFolder?.languageCode == "es")
-        #expect(try fetchExamples(wordID: wordID, from: container).map(\.text) == [""])
+        // update() does not touch meanings — that's a separate write via GLIWordMeaningsClient.
+        #expect(try fetchMeanings(wordPairID: wordID, from: container).map(\.text) == ["old meaning"])
     }
 
-    @Test("update inserts then updates one example sidecar")
-    @MainActor
-    func updateUpsertsExample() async throws {
-        let container = try makeContainerWithWord()
-        let actor = GLIModelActor(modelContainer: container)
-
-        _ = try await actor.update(
-            GLIWordCardUpdate(
-                wordID: wordID,
-                word: "hola",
-                translation: "hello",
-                targetLanguage: "en",
-                example: "First"
-            )
-        )
-        _ = try await actor.update(
-            GLIWordCardUpdate(
-                wordID: wordID,
-                word: "hola",
-                translation: "hello",
-                targetLanguage: "en",
-                example: "Second"
-            )
-        )
-
-        let examples = try fetchExamples(wordID: wordID, from: container)
-        #expect(examples.count == 1)
-        #expect(examples.first?.text == "Second")
-    }
-
-    @Test("delete removes word and example but keeps permanent folder")
+    @Test("delete removes word and its meanings but keeps permanent folder")
     @MainActor
     func deletePreservesFolder() async throws {
-        let container = try makeContainerWithWord(example: "Example")
+        let container = try makeContainerWithWord(meaningText: "meaning")
         let actor = GLIModelActor(modelContainer: container)
 
         try await actor.delete(wordID: wordID)
 
         #expect(try fetchWord(id: wordID, from: container) == nil)
-        #expect(try fetchExamples(wordID: wordID, from: container).isEmpty)
+        #expect(try fetchMeanings(wordPairID: wordID, from: container).isEmpty)
 
         let context = ModelContext(container)
         let folders = try context.fetch(FetchDescriptor<GLILanguageFolderEntity>())
@@ -86,7 +54,25 @@ struct GLICardMutationsTests {
         #expect(folders.first?.items.isEmpty == true)
     }
 
-    @Test("missing IDs fail predictably without creating sidecars")
+    @Test("delete with multiple meanings removes all of them")
+    @MainActor
+    func deleteRemovesAllMeanings() async throws {
+        let container = try makeContainerWithWord()
+        let actor = GLIModelActor(modelContainer: container)
+        try await actor.replaceMeanings(
+            wordPairID: wordID,
+            meanings: [
+                GLIWordMeaning(text: "first"),
+                GLIWordMeaning(text: "second"),
+            ]
+        )
+
+        try await actor.delete(wordID: wordID)
+
+        #expect(try fetchMeanings(wordPairID: wordID, from: container).isEmpty)
+    }
+
+    @Test("missing IDs fail predictably without creating meanings")
     @MainActor
     func missingIDsFailPredictably() async throws {
         let container = try GLIModelContainerFactory.makeInMemory()
@@ -97,9 +83,7 @@ struct GLICardMutationsTests {
                 GLIWordCardUpdate(
                     wordID: wordID,
                     word: "missing",
-                    translation: "",
-                    targetLanguage: nil,
-                    example: "Must not persist"
+                    targetLanguage: nil
                 )
             )
         }
@@ -107,7 +91,7 @@ struct GLICardMutationsTests {
             try await actor.delete(wordID: wordID)
         }
 
-        #expect(try fetchExamples(wordID: wordID, from: container).isEmpty)
+        #expect(try fetchMeanings(wordPairID: wordID, from: container).isEmpty)
     }
 
     @Test("shared actor clients observe one persistence state")
@@ -116,12 +100,11 @@ struct GLICardMutationsTests {
         let container = try GLIModelContainerFactory.makeInMemory()
         let actor = GLIModelActor(modelContainer: container)
         let wordPairs = GLIWordPairsClient.live(actor: actor)
-        let examples = GLIWordExamplesClient.live(actor: actor)
+        let meanings = GLIWordMeaningsClient.live(actor: actor)
         let mutations = GLICardMutationsClient.live(actor: actor)
         let pair = GLIWordPair(
             id: wordID,
             word: "hola",
-            translation: "hello",
             sourceLanguage: "es",
             targetLanguage: "en"
         )
@@ -131,30 +114,30 @@ struct GLICardMutationsTests {
             GLIWordCardUpdate(
                 wordID: wordID,
                 word: "hola!",
-                translation: "hello!",
-                targetLanguage: "fr",
-                example: "¡Hola!"
+                targetLanguage: "fr"
             )
         )
+        try await meanings.replaceAll(wordID, [GLIWordMeaning(text: "hello!", example: "¡Hola!")])
 
         let fetched = try await wordPairs.fetchWordPairs()
         #expect(fetched == [updated])
-        #expect(try await examples.fetchExample(wordID) == "¡Hola!")
+        let storedMeanings = try await meanings.fetch(wordID)
+        #expect(storedMeanings.map(\.text) == ["hello!"])
+        #expect(storedMeanings.first?.example == "¡Hola!")
 
         try await mutations.delete(wordID)
         #expect(try await wordPairs.fetchWordPairs().isEmpty)
-        #expect(try await examples.fetchExample(wordID).isEmpty)
+        #expect(try await meanings.fetch(wordID).isEmpty)
     }
 
     @MainActor
-    private func makeContainerWithWord(example: String? = nil) throws -> ModelContainer {
+    private func makeContainerWithWord(meaningText: String? = nil) throws -> ModelContainer {
         let container = try GLIModelContainerFactory.makeInMemory()
         let context = ModelContext(container)
         let folder = GLILanguageFolderEntity(id: folderID, languageCode: "es")
         let word = GLIWordPairEntity(
             id: wordID,
             word: "hola",
-            translation: "hello",
             sourceLanguage: "es",
             targetLanguage: "en",
             createdAt: createdAt,
@@ -162,8 +145,8 @@ struct GLICardMutationsTests {
         )
         context.insert(folder)
         context.insert(word)
-        if let example {
-            context.insert(GLIWordExampleEntity(wordID: wordID, text: example))
+        if let meaningText {
+            context.insert(GLIWordMeaningEntity(wordPairID: wordID, text: meaningText))
         }
         try context.save()
         return container
@@ -183,13 +166,13 @@ struct GLICardMutationsTests {
     }
 
     @MainActor
-    private func fetchExamples(
-        wordID: UUID,
+    private func fetchMeanings(
+        wordPairID: UUID,
         from container: ModelContainer
-    ) throws -> [GLIWordExampleEntity] {
-        let wordID = wordID
-        let descriptor = FetchDescriptor<GLIWordExampleEntity>(
-            predicate: #Predicate { $0.wordID == wordID }
+    ) throws -> [GLIWordMeaningEntity] {
+        let wordPairID = wordPairID
+        let descriptor = FetchDescriptor<GLIWordMeaningEntity>(
+            predicate: #Predicate { $0.wordPairID == wordPairID }
         )
         return try ModelContext(container).fetch(descriptor)
     }

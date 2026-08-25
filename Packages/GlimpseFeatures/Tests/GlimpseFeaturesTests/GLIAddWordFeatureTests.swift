@@ -11,7 +11,7 @@ struct GLIAddWordFeatureTests {
 
     private func makeStore(
         word: String = "",
-        translation: String = "",
+        meaningText: String = "",
         sourceLanguage: String? = nil,
         targetLanguage: String? = nil,
         didManuallySetSource: Bool = false,
@@ -24,10 +24,10 @@ struct GLIAddWordFeatureTests {
                 wordPair: GLIWordPair(
                     id: pairID,
                     word: word,
-                    translation: translation,
                     sourceLanguage: sourceLanguage,
                     targetLanguage: targetLanguage
                 ),
+                meaningText: meaningText,
                 didManuallySetSource: didManuallySetSource,
                 didManuallySetTarget: didManuallySetTarget
             )
@@ -55,12 +55,12 @@ struct GLIAddWordFeatureTests {
         }
     }
 
-    @Test("translationChanged updates translation binding")
-    func translationChangedUpdatesTranslation() async {
+    @Test("meaningTextChanged updates the meaning-text binding")
+    func meaningTextChangedUpdatesMeaningText() async {
         let store = makeStore(word: "hola")
 
-        await store.send(.translationChanged("hello")) {
-            $0.wordPair.translation = "hello"
+        await store.send(.meaningTextChanged("hello")) {
+            $0.meaningText = "hello"
         }
     }
 
@@ -104,7 +104,7 @@ struct GLIAddWordFeatureTests {
     @Test("doneButtonTapped sends wordAdded with sync detection")
     func doneSendsDelegateWithoutDismiss() async {
         let didDismiss = LockIsolated(false)
-        let store = makeStore(word: "hola", translation: "hello") {
+        let store = makeStore(word: "hola", meaningText: "hello") {
             didDismiss.setValue(true)
         }
 
@@ -117,13 +117,25 @@ struct GLIAddWordFeatureTests {
 
         #expect(didDismiss.value == false)
         #expect(store.state.wordPair.word == "hola")
-        #expect(store.state.wordPair.translation == "hello")
+        #expect(store.state.meaningText == "hello")
+    }
+
+    @Test("doneButtonTapped trims the meaning text")
+    func doneTrimsMeaningText() async {
+        let store = makeStore(word: "hola", meaningText: "  hello  ")
+
+        await store.send(.doneButtonTapped) {
+            $0.wordPair.sourceLanguage = "es"
+            $0.wordPair.targetLanguage = "es"
+            $0.meaningText = "hello"
+        }
+        await store.receive(\.delegate.wordAdded)
     }
 
     @Test("doneButtonTapped with whitespace/empty word does nothing")
     func doneWithEmptyWordDoesNothing() async {
         let didDismiss = LockIsolated(false)
-        let store = makeStore(word: "   ", translation: "") {
+        let store = makeStore(word: "   ", meaningText: "") {
             didDismiss.setValue(true)
         }
 

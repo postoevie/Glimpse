@@ -90,6 +90,7 @@ public struct GLILanguageFoldersFeature {
     @Dependency(\.languageFolders) var languageFolders
     @Dependency(\.wordPairs) var wordPairs
     @Dependency(\.customFolders) var customFolders
+    @Dependency(\.wordMeanings) var wordMeanings
 
     public init() {}
 
@@ -127,7 +128,7 @@ public struct GLILanguageFoldersFeature {
 
             case .addButtonTapped:
                 state.addWord = GLIAddWordFeature.State(
-                    wordPair: GLIWordPair(word: "", translation: "")
+                    wordPair: GLIWordPair(word: "")
                 )
                 return .none
 
@@ -177,12 +178,20 @@ public struct GLILanguageFoldersFeature {
                 return .none
 
             case .addWord(.presented(.delegate(.wordAdded))):
-                guard let pair = state.addWord?.wordPair else {
+                guard let addWordState = state.addWord else {
                     reportIssue("wordAdded delegate without presented child draft")
                     return .none
                 }
-                return .run { [wordPairs] send in
+                let pair = addWordState.wordPair
+                let meaning = GLIWordMeaning.captureMeaning(
+                    text: addWordState.meaningText,
+                    language: pair.targetLanguage
+                )
+                return .run { [wordPairs, wordMeanings] send in
                     try await wordPairs.save(pair)
+                    if let meaning {
+                        try await wordMeanings.replaceAll(pair.id, [meaning])
+                    }
                     await send(.addWord(.dismiss))
                 } catch: { error, _ in
                     reportIssue(error)

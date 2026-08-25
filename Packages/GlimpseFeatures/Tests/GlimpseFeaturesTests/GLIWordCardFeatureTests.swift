@@ -5,7 +5,14 @@ import GlimpseFeatures
 import IssueReporting
 import Testing
 
-@Suite("GLIWordCardFeature")
+/// UUIDs produced by TCA's incrementing generator (`00000000-0000-0000-0000-%012x`).
+private enum IncrementingUUID {
+    static subscript(_ n: Int) -> UUID {
+        UUID(uuidString: String(format: "00000000-0000-0000-0000-%012x", n))!
+    }
+}
+
+@Suite("GLIWordCardFeature", .serialized)
 @MainActor
 struct GLIWordCardFeatureTests {
     private enum Failure: Error {
@@ -13,84 +20,16 @@ struct GLIWordCardFeatureTests {
     }
 
     private let wordID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    private let folderID = UUID(uuidString: "00000000-0000-0000-0000-0000000000F1")!
 
-    @Test("example load failure keeps example nil, records failure, and blocks edit")
-    func exampleLoadFailedKeepsExampleNilAndBlocksEdit() async {
-        var state = makeState(example: nil)
-        state.draft = GLIWordCardFeature.State.Draft(
-            wordPair: state.wordPair,
-            example: "Real sidecar text"
-        )
-        let store = makeStore(initialState: state)
-
-        await store.send(.exampleLoadFailed) {
-            $0.didFailExampleLoad = true
-        }
-
-        #expect(store.state.example == nil)
-        #expect(store.state.didFailExampleLoad == true)
-        #expect(store.state.draft.example == "Real sidecar text")
-
-        await store.send(.view(.editButtonTapped))
-        #expect(store.state.isEditing == false)
-    }
-
-    @Test("example load success clears the failure flag")
-    func exampleLoadedClearsFailureFlag() async {
-        var state = makeState(example: nil)
-        state.didFailExampleLoad = true
-        let store = makeStore(initialState: state)
-
-        await store.send(.exampleLoaded("Loaded example")) {
-            $0.didFailExampleLoad = false
-            $0.example = "Loaded example"
-            $0.draft = GLIWordCardFeature.State.Draft(
-                wordPair: $0.wordPair,
-                example: "Loaded example"
-            )
-        }
-    }
-
-    @Test("onAppear clears failure flag before refetching")
-    func onAppearClearsFailureFlagBeforeFetch() async {
-        var state = makeState(example: "Stale")
-        state.didFailExampleLoad = true
-        let store = TestStore(initialState: state) {
-            GLIWordCardFeature()
-        } withDependencies: {
-            $0.cardMutations = GLICardMutationsClient(
-                update: {
-                    GLIWordPair(
-                        id: $0.wordID,
-                        word: $0.word,
-                        translation: $0.translation
-                    )
-                },
-                delete: { _ in }
-            )
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "Fresh" })
-        }
-
-        await store.send(.view(.onAppear)) {
-            $0.didFailExampleLoad = false
-            $0.example = nil
-        }
-        await store.receive(.exampleLoaded("Fresh")) {
-            $0.example = "Fresh"
-            $0.draft = GLIWordCardFeature.State.Draft(
-                wordPair: $0.wordPair,
-                example: "Fresh"
-            )
-        }
-    }
+    // MARK: - Draft / validation
 
     @Test("state initializes its editable draft and validates a trimmed word")
     func draftInitializationAndValidation() {
-        var state = makeState(example: "Example")
+        var state = makeState(meanings: [GLIWordMeaning(text: "hello")])
 
         #expect(state.draft.word == "hola")
-        #expect(state.draft.translation == "hello")
-        #expect(state.draft.example == "Example")
+        #expect(state.draft.meanings.map(\.text) == ["hello"])
         #expect(state.draft.targetLanguage == "en")
         #expect(state.canSave == false)
 
@@ -102,9 +41,102 @@ struct GLIWordCardFeatureTests {
         #expect(state.canSave == true)
     }
 
+    @Test("isAtMeaningCap is true at the 20-meaning limit")
+    func meaningCap() {
+        var state = makeState()
+        state.draft.meanings = IdentifiedArrayOf(
+            uniqueElements: (0..<20).map { GLIWordMeaning(text: "m\($0)") }
+        )
+        #expect(state.isAtMeaningCap == true)
+        state.draft.meanings.removeLast()
+        #expect(state.isAtMeaningCap == false)
+    }
+
+    // MARK: - Load meanings
+
+    @Test("onAppear loads meanings and, with a known source, eligible custom folders")
+    func onAppearLoadsMeaningsAndEligibleFolders() async {
+        let meaning = GLIWordMeaning(text: "hello")
+        let eligible = GLICustomFolder(id: folderID, name: "Travel", sourceLanguage: "es")
+        let store = makeStore(
+            fetchMeanings: { _ in [meaning] },
+            fetchCustomFolders: { [eligible] }
+        )
+
+        // makeStore()'s default state is already .loading — no observable change here.
+        await store.send(.view(.onAppear))
+        await store.receive(\.meaningsLoaded) {
+            $0.meaningsLoadState = .loaded([meaning])
+            $0.draft = GLIWordCardFeature.State.Draft(
+                wordPair: $0.wordPair,
+                meanings: [meaning]
+            )
+        }
+        await store.receive(\.customFoldersLoaded) {
+            $0.allCustomFolders = [eligible]
+        }
+        #expect(store.state.eligibleCustomFolders == [eligible])
+    }
+
+    @Test("onAppear with Unsorted word loads allCustomFolders; eligibleCustomFolders stays empty")
+    func onAppearUnsortedLoadsAllFolders() async {
+        let anyFolder = GLICustomFolder(id: folderID, name: "Travel", sourceLanguage: "fr")
+        var state = makeState()
+        state.wordPair.sourceLanguage = nil
+        let store = makeStore(
+            initialState: state,
+            fetchCustomFolders: { [anyFolder] }
+        )
+
+        // makeState()'s default is already .loading — no observable change here.
+        await store.send(.view(.onAppear))
+        await store.receive(\.meaningsLoaded) {
+            $0.meaningsLoadState = .loaded([])
+            $0.draft = GLIWordCardFeature.State.Draft(wordPair: $0.wordPair, meanings: [])
+        }
+        await store.receive(\.customFoldersLoaded) {
+            $0.allCustomFolders = [anyFolder]
+        }
+        #expect(store.state.eligibleCustomFolders == [])
+    }
+
+    @Test("meanings load failure sets the failure flag and blocks edit")
+    func meaningsLoadFailureBlocksEdit() async {
+        let store = makeStore(fetchMeanings: { _ in throw Failure.expected })
+        // Dual merge on onAppear — the folder load still fires; this test only cares about meanings.
+        store.exhaustivity = .off
+
+        // makeStore()'s default state is already .loading — no observable change here.
+        await withExpectedIssue {
+            await store.send(.view(.onAppear))
+            await store.receive(\.meaningsLoadFailed) {
+                $0.meaningsLoadState = .failed
+            }
+        }
+
+        await store.send(.view(.editButtonTapped))
+        #expect(store.state.isEditing == false)
+    }
+
+    // MARK: - Edit / cancel
+
+    @Test("edit seeds one empty meaning row when the card has none")
+    func editSeedsEmptyRowWhenNoMeanings() async {
+        let store = makeStore(initialState: makeState(meanings: []))
+
+        await store.send(.view(.editButtonTapped)) {
+            $0.isEditing = true
+            $0.draft.meanings = [
+                GLIWordMeaning(id: IncrementingUUID[0], text: "", language: "en"),
+            ]
+        }
+        #expect(store.state.draft.meanings.count == 1)
+    }
+
     @Test("cancel discards every draft change")
     func cancelRestoresPersistedValues() async {
-        let store = makeStore(example: "Old example")
+        let meaning = GLIWordMeaning(text: "hello")
+        let store = makeStore(initialState: makeState(meanings: [meaning]))
 
         await store.send(.view(.editButtonTapped)) {
             $0.isEditing = true
@@ -112,94 +144,154 @@ struct GLIWordCardFeatureTests {
         await store.send(.view(.wordChanged("bonjour"))) {
             $0.draft.word = "bonjour"
         }
-        await store.send(.view(.translationChanged(""))) {
-            $0.draft.translation = ""
-        }
-        await store.send(.view(.exampleChanged(""))) {
-            $0.draft.example = ""
-        }
         await store.send(.view(.targetLanguageChanged("fr"))) {
             $0.draft.targetLanguage = "fr"
         }
         await store.send(.view(.cancelButtonTapped)) {
             $0.draft = GLIWordCardFeature.State.Draft(
                 wordPair: $0.wordPair,
-                example: "Old example"
+                meanings: [meaning]
             )
             $0.isEditing = false
         }
     }
 
-    @Test("save trims the word, preserves source identity, and publishes the updated card")
-    func saveSuccess() async {
-        let updates = LockIsolated<[GLIWordCardUpdate]>([])
-        let updated = GLIWordPair(
-            id: wordID,
-            word: "bonjour",
-            translation: "",
-            sourceLanguage: "es",
-            targetLanguage: "fr"
-        )
-        let store = makeStore(example: "Old example") { update in
-            updates.withValue { $0.append(update) }
-            return updated
-        }
+    // MARK: - Add / remove meaning rows
 
-        await store.send(.view(.editButtonTapped)) {
-            $0.isEditing = true
+    @Test("addMeaningTapped appends an empty row defaulted to the card target language")
+    func addMeaningAppendsRow() async {
+        var state = makeState(meanings: [])
+        state.isEditing = true
+        state.draft.targetLanguage = "fr"
+        let store = makeStore(initialState: state)
+
+        await store.send(.view(.addMeaningTapped)) {
+            $0.draft.meanings.append(
+                GLIWordMeaning(id: IncrementingUUID[0], text: "", language: "fr")
+            )
         }
-        await store.send(.view(.wordChanged("  bonjour \n"))) {
-            $0.draft.word = "  bonjour \n"
+    }
+
+    @Test("addMeaningTapped no-ops at the cap")
+    func addMeaningNoOpsAtCap() async {
+        var state = makeState()
+        state.isEditing = true
+        state.draft.meanings = IdentifiedArrayOf(
+            uniqueElements: (0..<20).map { GLIWordMeaning(text: "m\($0)") }
+        )
+        let store = makeStore(initialState: state)
+
+        await store.send(.view(.addMeaningTapped))
+        #expect(store.state.draft.meanings.count == 20)
+    }
+
+    @Test("removeMeaningTapped drops the row")
+    func removeMeaningDropsRow() async {
+        let meaning = GLIWordMeaning(text: "hello")
+        var state = makeState(meanings: [meaning])
+        state.isEditing = true
+        state.draft.meanings = [meaning]
+        let store = makeStore(initialState: state)
+
+        await store.send(.view(.removeMeaningTapped(id: meaning.id))) {
+            $0.draft.meanings.remove(id: meaning.id)
         }
-        await store.send(.view(.translationChanged(""))) {
-            $0.draft.translation = ""
+    }
+
+    @Test("meaningTextChanged writes text and applies the detected language after the debounce")
+    func meaningTextChangedRunsDetection() async {
+        let meaning = GLIWordMeaning(text: "")
+        var state = makeState(meanings: [])
+        state.isEditing = true
+        state.draft.meanings = [meaning]
+        let store = makeStore(
+            initialState: state,
+            detectSourceLanguage: { _ in "fr" }
+        )
+
+        await store.send(.view(.meaningTextChanged(id: meaning.id, text: "bonjour"))) {
+            $0.draft.meanings[id: meaning.id]?.text = "bonjour"
         }
-        await store.send(.view(.exampleChanged(""))) {
-            $0.draft.example = ""
+        await store.receive(\.languageDetectionResponse) {
+            $0.draft.meanings[id: meaning.id]?.language = "fr"
         }
-        await store.send(.view(.targetLanguageChanged("fr"))) {
-            $0.draft.targetLanguage = "fr"
-        }
+    }
+
+    // MARK: - Save
+
+    @Test("save trims the word, drops the untouched empty seed row, and persists meanings")
+    func saveDropsUntouchedEmptyRow() async {
+        let replacedMeanings = LockIsolated<[GLIWordMeaning]>([])
+        let updated = GLIWordPair(id: wordID, word: "bonjour", sourceLanguage: "es", targetLanguage: "en")
+        var state = makeState(meanings: [])
+        state.isEditing = true
+        state.draft.word = "  bonjour \n"
+        state.draft.meanings = [GLIWordMeaning(text: "")] // untouched Edit-seed row
+        let store = makeStore(
+            initialState: state,
+            update: { _ in updated },
+            replaceAll: { _, meanings in replacedMeanings.setValue(meanings) }
+        )
+
         await store.send(.view(.saveButtonTapped)) {
             $0.isSaving = true
         }
-        await store.receive(.saveSucceeded(updated, example: "")) {
+        await store.receive(\.saveSucceeded) {
             $0.wordPair = updated
-            $0.example = ""
-            $0.draft = GLIWordCardFeature.State.Draft(wordPair: updated, example: "")
+            $0.meaningsLoadState = .loaded([])
+            $0.draft = GLIWordCardFeature.State.Draft(wordPair: updated, meanings: [])
             $0.isSaving = false
             $0.isEditing = false
         }
-        await store.receive(.delegate(.updated(updated)))
+        await store.receive(\.delegate.updated, updated)
 
-        #expect(
-            updates.value == [
-                GLIWordCardUpdate(
-                    wordID: wordID,
-                    word: "bonjour",
-                    translation: "",
-                    targetLanguage: "fr",
-                    example: ""
-                )
-            ]
-        )
-        #expect(store.state.wordPair.sourceLanguage == "es")
+        #expect(replacedMeanings.value.isEmpty)
+    }
+
+    @Test("save preserves custom-folder membership across the word-card update")
+    func savePreservesCustomFolderID() async {
+        let meaning = GLIWordMeaning(text: "hello")
+        let updated = GLIWordPair(id: wordID, word: "hola", sourceLanguage: "es", targetLanguage: "en")
+        let mergedWordPair: GLIWordPair = {
+            var pair = updated
+            pair.customFolderID = folderID
+            return pair
+        }()
+        var state = makeState(meanings: [meaning])
+        state.wordPair.customFolderID = folderID
+        state.isEditing = true
+        state.draft.word = "hola"
+        // A real actor's update only touches word/targetLanguage columns and returns the
+        // full current row — customFolderID is already there, not merged in by the reducer.
+        let store = makeStore(initialState: state, update: { _ in mergedWordPair })
+
+        await store.send(.view(.saveButtonTapped)) {
+            $0.isSaving = true
+        }
+        await store.receive(\.saveSucceeded) {
+            $0.wordPair = mergedWordPair
+            $0.meaningsLoadState = .loaded([meaning])
+            $0.draft = GLIWordCardFeature.State.Draft(
+                wordPair: mergedWordPair,
+                meanings: [meaning]
+            )
+            $0.isSaving = false
+            $0.isEditing = false
+        }
+        await store.receive(\.delegate.updated, mergedWordPair)
+        #expect(store.state.wordPair.customFolderID == folderID)
     }
 
     @Test("blank-word save is ignored")
     func blankWordDoesNotSave() async {
         let updates = LockIsolated(0)
-        var state = makeState(example: "")
+        var state = makeState(meanings: [])
         state.isEditing = true
         state.draft.word = " \n "
-        let store = makeStore(initialState: state) { update in
+        let store = makeStore(initialState: state, update: { update in
             updates.withValue { $0 += 1 }
-            return GLIWordPair(
-                id: update.wordID,
-                word: update.word,
-                translation: update.translation
-            )
-        }
+            return GLIWordPair(id: wordID, word: update.word, sourceLanguage: "es")
+        })
 
         await store.send(.view(.saveButtonTapped))
         await store.finish()
@@ -210,17 +302,11 @@ struct GLIWordCardFeatureTests {
     @Test("failed save keeps the draft and retry succeeds")
     func saveFailureAndRetry() async {
         let attempts = LockIsolated(0)
-        let updated = GLIWordPair(
-            id: wordID,
-            word: "bonjour",
-            translation: "hello",
-            sourceLanguage: "es",
-            targetLanguage: "en"
-        )
-        var state = makeState(example: "Example")
+        let updated = GLIWordPair(id: wordID, word: "bonjour", sourceLanguage: "es", targetLanguage: "en")
+        var state = makeState(meanings: [])
         state.isEditing = true
         state.draft.word = "bonjour"
-        let store = makeStore(initialState: state) { _ in
+        let store = makeStore(initialState: state, update: { _ in
             let attempt = attempts.withValue {
                 $0 += 1
                 return $0
@@ -229,13 +315,13 @@ struct GLIWordCardFeatureTests {
                 throw Failure.expected
             }
             return updated
-        }
+        })
 
         await withExpectedIssue {
             await store.send(.view(.saveButtonTapped)) {
                 $0.isSaving = true
             }
-            await store.receive(.saveFailed) {
+            await store.receive(\.saveFailed) {
                 $0.isSaving = false
                 $0.alert = saveFailureAlert()
             }
@@ -245,20 +331,22 @@ struct GLIWordCardFeatureTests {
         await store.send(.alert(.presented(.retrySave))) {
             $0.alert = nil
         }
-        await store.receive(.view(.saveButtonTapped)) {
+        await store.receive(\.view.saveButtonTapped) {
             $0.isSaving = true
         }
-        await store.receive(.saveSucceeded(updated, example: "Example")) {
+        await store.receive(\.saveSucceeded) {
             $0.wordPair = updated
-            $0.example = "Example"
-            $0.draft = GLIWordCardFeature.State.Draft(wordPair: updated, example: "Example")
+            $0.meaningsLoadState = .loaded([])
+            $0.draft = GLIWordCardFeature.State.Draft(wordPair: updated, meanings: [])
             $0.isSaving = false
             $0.isEditing = false
         }
-        await store.receive(.delegate(.updated(updated)))
+        await store.receive(\.delegate.updated, updated)
 
         #expect(attempts.value == 2)
     }
+
+    // MARK: - Delete
 
     @Test("delete requires confirmation and publishes success")
     func deleteConfirmationAndSuccess() async {
@@ -273,13 +361,13 @@ struct GLIWordCardFeatureTests {
         await store.send(.alert(.presented(.confirmDelete))) {
             $0.alert = nil
         }
-        await store.receive(.deleteConfirmed) {
+        await store.receive(\.deleteConfirmed) {
             $0.isDeleting = true
         }
-        await store.receive(.deleteSucceeded) {
+        await store.receive(\.deleteSucceeded) {
             $0.isDeleting = false
         }
-        await store.receive(.delegate(.deleted(wordID)))
+        await store.receive(\.delegate.deleted, wordID)
 
         #expect(deletedIDs.value == [wordID])
     }
@@ -301,7 +389,7 @@ struct GLIWordCardFeatureTests {
             await store.send(.deleteConfirmed) {
                 $0.isDeleting = true
             }
-            await store.receive(.deleteFailed) {
+            await store.receive(\.deleteFailed) {
                 $0.isDeleting = false
                 $0.alert = deleteFailureAlert()
             }
@@ -311,64 +399,258 @@ struct GLIWordCardFeatureTests {
         await store.send(.alert(.presented(.retryDelete))) {
             $0.alert = nil
         }
-        await store.receive(.deleteConfirmed) {
+        await store.receive(\.deleteConfirmed) {
             $0.isDeleting = true
         }
-        await store.receive(.deleteSucceeded) {
+        await store.receive(\.deleteSucceeded) {
             $0.isDeleting = false
         }
-        await store.receive(.delegate(.deleted(wordID)))
+        await store.receive(\.delegate.deleted, wordID)
 
         #expect(attempts.value == 2)
     }
 
-    private func makeState(example: String? = nil) -> GLIWordCardFeature.State {
-        GLIWordCardFeature.State(
+    // MARK: - Membership
+
+    @Test("sourceLanguagePicked from Unsorted moves the word to a language folder; eligibleCustomFolders now reflects it")
+    func sourceLanguagePickedFromUnsortedLoadsEligible() async {
+        let eligible = GLICustomFolder(id: folderID, name: "Travel", sourceLanguage: "es")
+        var state = makeState(meanings: [])
+        state.wordPair.sourceLanguage = nil
+        let updated = GLIWordPair(id: wordID, word: "hola", sourceLanguage: "es", targetLanguage: "en")
+        let store = makeStore(
+            initialState: state,
+            fetchMeanings: { _ in [] },
+            updateSource: { _, source in
+                #expect(source == "es")
+                return updated
+            },
+            fetchCustomFolders: { [eligible] }
+        )
+
+        // allCustomFolders only loads on appear now — seed it before the membership pick.
+        await store.send(.view(.onAppear)) {
+            $0.meaningsLoadState = .loading
+        }
+        await store.receive(\.meaningsLoaded) {
+            $0.meaningsLoadState = .loaded([])
+            $0.draft = GLIWordCardFeature.State.Draft(wordPair: $0.wordPair, meanings: [])
+        }
+        await store.receive(\.customFoldersLoaded) {
+            $0.allCustomFolders = [eligible]
+        }
+        #expect(store.state.eligibleCustomFolders == [])
+
+        await store.send(.view(.sourceLanguagePicked("es")))
+        await store.receive(\.sourceUpdateSucceeded) {
+            $0.wordPair = updated
+        }
+        await store.receive(\.delegate.updated, updated)
+        #expect(store.state.eligibleCustomFolders == [eligible])
+    }
+
+    @Test("sourceLanguagePicked to Not set moves the word to Unsorted; allCustomFolders stays available for the picker")
+    func sourceLanguagePickedToNilLoadsAllFolders() async {
+        let anyFolder = GLICustomFolder(id: folderID, name: "Travel", sourceLanguage: "fr")
+        let updated = GLIWordPair(id: wordID, word: "hola", sourceLanguage: nil, targetLanguage: "en")
+        let store = makeStore(
+            fetchMeanings: { _ in [] },
+            updateSource: { _, source in
+                #expect(source == nil)
+                return updated
+            },
+            fetchCustomFolders: { [anyFolder] }
+        )
+
+        // makeStore()'s default state is already .loading — no observable change here.
+        await store.send(.view(.onAppear))
+        await store.receive(\.meaningsLoaded) {
+            $0.meaningsLoadState = .loaded([])
+            $0.draft = GLIWordCardFeature.State.Draft(wordPair: $0.wordPair, meanings: [])
+        }
+        await store.receive(\.customFoldersLoaded) {
+            $0.allCustomFolders = [anyFolder]
+        }
+        #expect(store.state.eligibleCustomFolders == []) // "fr" folder doesn't match default "es" source
+
+        await store.send(.view(.sourceLanguagePicked(nil)))
+        await store.receive(\.sourceUpdateSucceeded) {
+            $0.wordPair = updated
+        }
+        await store.receive(\.delegate.updated, updated)
+        #expect(store.state.isUnsorted == true)
+        #expect(store.state.allCustomFolders == [anyFolder])
+    }
+
+    @Test("sourceLanguagePicked with the unchanged source is a no-op")
+    func sourceLanguagePickedUnchangedNoOps() async {
+        let store = makeStore(
+            updateSource: { _, _ in
+                Issue.record("updateSource should not be called for an unchanged source")
+                return GLIWordPair(id: wordID, word: "hola", sourceLanguage: "es")
+            }
+        )
+
+        await store.send(.view(.sourceLanguagePicked("es")))
+    }
+
+    @Test("customFolderPicked while Unsorted adopts the folder's source; eligibleCustomFolders reflects it afterward")
+    func customFolderPickedFromUnsortedAdoptsSource() async {
+        var state = makeState(meanings: [])
+        state.wordPair.sourceLanguage = nil
+        let updated = GLIWordPair(
+            id: wordID,
+            word: "hola",
+            sourceLanguage: "es",
+            targetLanguage: "en",
+            customFolderID: folderID
+        )
+        let eligible = GLICustomFolder(id: folderID, name: "Travel", sourceLanguage: "es")
+        let store = makeStore(
+            initialState: state,
+            fetchMeanings: { _ in [] },
+            updateCustomFolder: { _, id in
+                #expect(id == folderID)
+                return updated
+            },
+            fetchCustomFolders: { [eligible] }
+        )
+
+        await store.send(.view(.onAppear)) {
+            $0.meaningsLoadState = .loading
+        }
+        await store.receive(\.meaningsLoaded) {
+            $0.meaningsLoadState = .loaded([])
+            $0.draft = GLIWordCardFeature.State.Draft(wordPair: $0.wordPair, meanings: [])
+        }
+        await store.receive(\.customFoldersLoaded) {
+            $0.allCustomFolders = [eligible]
+        }
+        #expect(store.state.eligibleCustomFolders == [])
+
+        await store.send(.view(.customFolderPicked(folderID)))
+        await store.receive(\.customFolderUpdateSucceeded) {
+            $0.wordPair = updated
+        }
+        await store.receive(\.delegate.updated, updated)
+        #expect(store.state.eligibleCustomFolders == [eligible])
+    }
+
+    @Test("customFolderPicked(nil) routes through customFolderCleared and clears membership")
+    func customFolderPickedNilClears() async {
+        var state = makeState(meanings: [])
+        state.wordPair.customFolderID = folderID
+        let cleared = GLIWordPair(id: wordID, word: "hola", sourceLanguage: "es", targetLanguage: "en")
+        let store = makeStore(
+            initialState: state,
+            updateCustomFolder: { _, id in
+                #expect(id == nil)
+                return cleared
+            }
+        )
+
+        await store.send(.view(.customFolderPicked(nil)))
+        await store.receive(\.view.customFolderCleared)
+        await store.receive(\.customFolderUpdateSucceeded) {
+            $0.wordPair = cleared
+        }
+        await store.receive(\.delegate.updated, cleared)
+    }
+
+    @Test("membership actions are blocked while saving or deleting")
+    func membershipBlockedWhileSavingOrDeleting() async {
+        var state = makeState(meanings: [])
+        state.isDeleting = true
+        let store = makeStore(
+            initialState: state,
+            updateSource: { _, _ in
+                Issue.record("updateSource should not be called while deleting")
+                return GLIWordPair(id: wordID, word: "hola")
+            },
+            updateCustomFolder: { _, _ in
+                Issue.record("updateCustomFolder should not be called while deleting")
+                return GLIWordPair(id: wordID, word: "hola")
+            }
+        )
+
+        await withExpectedIssue {
+            await store.send(.view(.sourceLanguagePicked("fr")))
+        }
+        await withExpectedIssue {
+            await store.send(.view(.customFolderPicked(folderID)))
+        }
+        await withExpectedIssue {
+            await store.send(.view(.customFolderCleared))
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func makeState(
+        meanings: [GLIWordMeaning]? = nil,
+        didFailMeaningsLoad: Bool = false
+    ) -> GLIWordCardFeature.State {
+        let meaningsLoadState: GLIWordCardFeature.State.MeaningsLoadState
+        if didFailMeaningsLoad {
+            meaningsLoadState = .failed
+        } else if let meanings {
+            meaningsLoadState = .loaded(IdentifiedArrayOf(uniqueElements: meanings))
+        } else {
+            meaningsLoadState = .loading
+        }
+        return GLIWordCardFeature.State(
             wordPair: GLIWordPair(
                 id: wordID,
                 word: "hola",
-                translation: "hello",
                 sourceLanguage: "es",
                 targetLanguage: "en"
             ),
-            example: example
+            meaningsLoadState: meaningsLoadState
         )
     }
 
     private func makeStore(
-        example: String? = nil,
+        initialState: GLIWordCardFeature.State? = nil,
         update: @escaping @Sendable (GLIWordCardUpdate) async throws -> GLIWordPair = {
-            GLIWordPair(
-                id: $0.wordID,
-                word: $0.word,
-                translation: $0.translation,
-                sourceLanguage: "es",
-                targetLanguage: $0.targetLanguage
-            )
+            GLIWordPair(id: $0.wordID, word: $0.word, sourceLanguage: "es", targetLanguage: $0.targetLanguage)
         },
-        delete: @escaping @Sendable (UUID) async throws -> Void = { _ in }
-    ) -> TestStoreOf<GLIWordCardFeature> {
-        makeStore(initialState: makeState(example: example), update: update, delete: delete)
-    }
-
-    private func makeStore(
-        initialState: GLIWordCardFeature.State,
-        update: @escaping @Sendable (GLIWordCardUpdate) async throws -> GLIWordPair = {
-            GLIWordPair(
-                id: $0.wordID,
-                word: $0.word,
-                translation: $0.translation,
-                sourceLanguage: "es",
-                targetLanguage: $0.targetLanguage
-            )
+        delete: @escaping @Sendable (UUID) async throws -> Void = { _ in },
+        fetchMeanings: @escaping @Sendable (GLIWordPair.ID) async throws -> [GLIWordMeaning] = { _ in [] },
+        replaceAll: @escaping @Sendable (GLIWordPair.ID, [GLIWordMeaning]) async throws -> Void = { _, _ in },
+        updateSource: @escaping @Sendable (GLIWordPair.ID, String?) async throws -> GLIWordPair = { id, source in
+            GLIWordPair(id: id, word: "hola", sourceLanguage: source, targetLanguage: "en")
         },
-        delete: @escaping @Sendable (UUID) async throws -> Void = { _ in }
+        updateCustomFolder: @escaping @Sendable (GLIWordPair.ID, UUID?) async throws -> GLIWordPair = { id, folderID in
+            GLIWordPair(id: id, word: "hola", sourceLanguage: "es", targetLanguage: "en", customFolderID: folderID)
+        },
+        fetchCustomFolders: @escaping @Sendable () async throws -> [GLICustomFolder] = { [] },
+        detectSourceLanguage: @escaping @Sendable (String) -> String? = { _ in nil }
     ) -> TestStoreOf<GLIWordCardFeature> {
-        TestStore(initialState: initialState) {
+        TestStore(initialState: initialState ?? makeState()) {
             GLIWordCardFeature()
         } withDependencies: {
             $0.cardMutations = GLICardMutationsClient(update: update, delete: delete)
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: fetchMeanings,
+                replaceAll: replaceAll,
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
+            $0.customFolders = GLICustomFoldersClient(
+                fetch: fetchCustomFolders,
+                create: { _, _ in throw Failure.expected },
+                rename: { _, _ in throw Failure.expected },
+                delete: { _ in }
+            )
+            $0.wordPairMembership = GLIWordPairMembershipClient(
+                assignCustomFolder: { _, _, _ in },
+                updateSource: updateSource,
+                updateCustomFolder: updateCustomFolder,
+                pruneEmptyLanguageFolders: {}
+            )
+            $0.languageDetector = GLILanguageDetectorClient(detectSourceLanguage: detectSourceLanguage)
+            $0.continuousClock = ImmediateClock()
+            $0.uuid = .incrementing
         }
     }
 

@@ -24,13 +24,17 @@ struct GLIAppFeatureNavigationTests {
                 fetchWordPairs: { [] },
                 save: { _ in }
             )
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in
                     GLIWordPair(
                         id: update.wordID,
-                        word: update.word,
-                        translation: update.translation
+                        word: update.word
                     )
                 },
                 delete: { _ in }
@@ -60,13 +64,17 @@ struct GLIAppFeatureNavigationTests {
                 fetchWordPairs: { [] },
                 save: { _ in }
             )
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in
                     GLIWordPair(
                         id: update.wordID,
-                        word: update.word,
-                        translation: update.translation
+                        word: update.word
                     )
                 },
                 delete: { _ in }
@@ -96,13 +104,17 @@ struct GLIAppFeatureNavigationTests {
                 fetchWordPairs: { [] },
                 save: { _ in }
             )
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in
                     GLIWordPair(
                         id: update.wordID,
-                        word: update.word,
-                        translation: update.translation
+                        word: update.word
                     )
                 },
                 delete: { _ in }
@@ -123,7 +135,6 @@ struct GLIAppFeatureNavigationTests {
         let pair = GLIWordPair(
             id: wordID,
             word: "hola",
-            translation: "hello",
             sourceLanguage: "es"
         )
         let store = TestStore(
@@ -148,13 +159,17 @@ struct GLIAppFeatureNavigationTests {
                 fetchWordPairs: { [] },
                 save: { _ in }
             )
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in
                     GLIWordPair(
                         id: update.wordID,
-                        word: update.word,
-                        translation: update.translation
+                        word: update.word
                     )
                 },
                 delete: { _ in }
@@ -200,13 +215,17 @@ struct GLIAppFeatureNavigationTests {
                 fetchWordPairs: { [] },
                 save: { _ in }
             )
-            $0.wordExamples = GLIWordExamplesClient(fetchExample: { _ in "" })
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
             $0.cardMutations = GLICardMutationsClient(
                 update: { update in
                     GLIWordPair(
                         id: update.wordID,
-                        word: update.word,
-                        translation: update.translation
+                        word: update.word
                     )
                 },
                 delete: { _ in }

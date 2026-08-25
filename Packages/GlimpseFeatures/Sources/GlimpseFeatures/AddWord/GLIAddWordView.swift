@@ -21,12 +21,12 @@ public struct GLIAddWordView: View {
                     .accessibilityLabel("Word")
 
                     TextField(
-                        "Translation",
-                        text: $store.wordPair.translation.sending(\.translationChanged),
+                        "Meaning",
+                        text: $store.meaningText.sending(\.meaningTextChanged),
                         prompt: Text("Optional")
                     )
                     .textInputAutocapitalization(.sentences)
-                    .accessibilityLabel("Translation")
+                    .accessibilityLabel("Meaning")
                     .accessibilityHint("Optional")
                 }
 
@@ -115,7 +115,7 @@ public typealias GLIAddWordFeatureView = GLIAddWordView
     GLIAddWordView(
         store: Store(
             initialState: GLIAddWordFeature.State(
-                wordPair: GLIWordPair(word: "hola", translation: "", sourceLanguage: "es", targetLanguage: "es")
+                wordPair: GLIWordPair(word: "hola", sourceLanguage: "es", targetLanguage: "es")
             )
         ) {
             GLIAddWordFeature()

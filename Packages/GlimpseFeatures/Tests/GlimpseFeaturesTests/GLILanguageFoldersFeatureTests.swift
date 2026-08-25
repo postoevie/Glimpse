@@ -28,6 +28,12 @@ struct GLILanguageFoldersFeatureTests {
             $0.languageDetector = GLILanguageDetectorClient(
                 detectSourceLanguage: { _ in "es" }
             )
+            $0.wordMeanings = GLIWordMeaningsClient(
+                fetch: { _ in [] },
+                replaceAll: { _, _ in },
+                firstMeanings: { _ in [:] },
+                fetchAll: { _ in [:] }
+            )
         }
     }
 
@@ -76,7 +82,7 @@ struct GLILanguageFoldersFeatureTests {
 
         let draft = try #require(store.state.addWord)
         #expect(draft.wordPair.word == "")
-        #expect(draft.wordPair.translation == "")
+        #expect(draft.meaningText == "")
         #expect(draft.wordPair.sourceLanguage == nil)
         #expect(draft.wordPair.targetLanguage == nil)
     }
@@ -136,7 +142,7 @@ struct GLILanguageFoldersFeatureTests {
     @Test("delegate wordAdded persists via wordPairs.save then dismisses without local append")
     func wordAddedSavesWithoutLocalAppend() async {
         let saved = LockIsolated<[GLIWordPair]>([])
-        let draft = GLIWordPair(id: draftID, word: "hola", translation: "hello")
+        let draft = GLIWordPair(id: draftID, word: "hola")
         let store = makeStore(
             initialState: GLILanguageFoldersFeature.State(
                 addWord: GLIAddWordFeature.State(wordPair: draft)
@@ -161,7 +167,7 @@ struct GLILanguageFoldersFeatureTests {
 
     @Test("after save, changes stream triggers foldersLoaded refresh")
     func changesStreamRefreshesFoldersAfterSave() async {
-        let draft = GLIWordPair(id: draftID, word: "hola", translation: "hello", sourceLanguage: "es")
+        let draft = GLIWordPair(id: draftID, word: "hola", sourceLanguage: "es")
         let folders = LockIsolated<[GLILanguageFolder]>([])
         let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
         let esFolder = GLILanguageFolder(id: folderID, languageCode: "es")
