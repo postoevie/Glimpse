@@ -14,18 +14,27 @@ public struct GLIWordCardView: View {
         List {
             Section("Word") {
                 if store.isEditing {
-                    TextField(
-                        "Word",
-                        text: Binding(
-                            get: { store.draft.word },
-                            set: { store.send(.view(.wordChanged($0))) }
-                        ),
-                        axis: .vertical
+                    let wordCounter = FieldCounter(
+                        count: store.draft.word.count,
+                        limit: GLICaptureFieldLimits.maxWordLength
                     )
-                    .lineLimit(2...6)
+                    GLICappedCaptureTextField(
+                        "Word",
+                        canonical: store.draft.word,
+                        limit: GLICaptureFieldLimits.maxWordLength,
+                        lineRange: 1...8,
+                        send: { store.send(.view(.wordChanged($0))) }
+                    )
                     .textInputAutocapitalization(.sentences)
                     .disabled(store.isSaving || store.isDeleting)
                     .accessibilityLabel("Word")
+                    .safeAreaInset(edge: .bottom, alignment: .leading, spacing: wordCounter.isVisible ? 8 : 0) {
+                        characterCounter(
+                            isVisible: wordCounter.isVisible,
+                            label: wordCounter.label,
+                            accessibilityLabel: wordCounter.accessibilityLabel
+                        )
+                    }
                 } else {
                     Text(store.wordPair.word)
                         .font(.title2.bold())
@@ -132,6 +141,7 @@ public struct GLIWordCardView: View {
         .task {
             await store.send(.view(.onAppear)).finish()
         }
+        .sensoryFeedback(.impact(weight: .light), trigger: store.lightHapticTick)
     }
 
     // MARK: - Meanings
@@ -176,6 +186,11 @@ public struct GLIWordCardView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(meaning.text)
                                 .fixedSize(horizontal: false, vertical: true)
+                            if let language = meaning.language, !language.isEmpty {
+                                Text(languageName(for: language))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                             if !meaning.example.isEmpty {
                                 Text(meaning.example)
                                     .font(.subheadline)
@@ -193,34 +208,55 @@ public struct GLIWordCardView: View {
 
     @ViewBuilder
     private func meaningEditRow(_ meaning: GLIWordMeaning) -> some View {
+        let textCounter = FieldCounter(
+            count: meaning.text.count,
+            limit: GLICaptureFieldLimits.maxMeaningLength
+        )
+        let exampleCounter = FieldCounter(
+            count: meaning.example.count,
+            limit: GLICaptureFieldLimits.maxExampleLength
+        )
+
         VStack(alignment: .leading, spacing: 4) {
-            TextField(
+            GLICappedCaptureTextField(
                 "Meaning",
-                text: Binding(
-                    get: { meaning.text },
-                    set: { store.send(.view(.meaningTextChanged(id: meaning.id, text: $0))) }
-                ),
-                axis: .vertical
+                canonical: meaning.text,
+                limit: GLICaptureFieldLimits.maxMeaningLength,
+                lineRange: 1...8,
+                send: { store.send(.view(.meaningTextChanged(id: meaning.id, text: $0))) }
             )
             .textInputAutocapitalization(.sentences)
             .disabled(store.isSaving || store.isDeleting)
             .accessibilityLabel("Meaning")
+            .accessibilityHint("Optional")
+            .safeAreaInset(edge: .bottom, alignment: .leading, spacing: textCounter.isVisible ? 8 : 0) {
+                characterCounter(
+                    isVisible: textCounter.isVisible,
+                    label: textCounter.label,
+                    accessibilityLabel: textCounter.accessibilityLabel
+                )
+            }
 
-            TextField(
+            GLICappedCaptureTextField(
                 "Example",
-                text: Binding(
-                    get: { meaning.example },
-                    set: { store.send(.view(.meaningExampleChanged(id: meaning.id, text: $0))) }
-                ),
-                prompt: Text("Optional"),
-                axis: .vertical
+                canonical: meaning.example,
+                limit: GLICaptureFieldLimits.maxExampleLength,
+                lineRange: 1...8,
+                animatesCanonicalChange: true,
+                send: { store.send(.view(.meaningExampleChanged(id: meaning.id, text: $0))) }
             )
-            .font(.subheadline)
             .textInputAutocapitalization(.sentences)
             .disabled(store.isSaving || store.isDeleting)
             .accessibilityLabel("Example")
             .accessibilityHint("Optional")
-            .padding(.leading, 8)
+            .safeAreaInset(edge: .bottom, alignment: .leading, spacing: exampleCounter.isVisible ? 8 : 0) {
+                characterCounter(
+                    isVisible: exampleCounter.isVisible,
+                    label: exampleCounter.label,
+                    accessibilityLabel: exampleCounter.accessibilityLabel
+                )
+            }
+            .padding(.leading, 16)
         }
         .padding(.vertical, 2)
     }
@@ -313,6 +349,35 @@ public struct GLIWordCardView: View {
             return "Unknown"
         }
         return Locale.current.localizedString(forLanguageCode: code) ?? code
+    }
+
+    private func characterCounter(
+        isVisible: Bool,
+        label: String,
+        accessibilityLabel: String
+    ) -> some View {
+        Text(label)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel(accessibilityLabel)
+            .opacity(isVisible ? 1 : 0)
+            .accessibilityHidden(!isVisible)
+            .frame(height: isVisible ? nil : 0)
+            .clipped()
+    }
+}
+
+/// Near-limit caption: visible when 20 or fewer characters remain. Same copy as Grab’s card.
+private struct FieldCounter {
+    var isVisible: Bool
+    var label: String
+    var accessibilityLabel: String
+
+    init(count: Int, limit: Int) {
+        isVisible = limit - count <= 20
+        label = String(localized: "\(count)/\(limit)")
+        accessibilityLabel = String(localized: "\(count) of \(limit) characters")
     }
 }
 
