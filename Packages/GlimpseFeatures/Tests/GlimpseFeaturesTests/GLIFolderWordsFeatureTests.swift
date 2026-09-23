@@ -13,13 +13,35 @@ struct GLIFolderWordsFeatureTests {
     private let pairID = UUID(uuidString: "00000000-0000-0000-0000-000000000010")!
     private let draftID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
 
+    private enum UnusedClientError: Error, Sendable {
+        case unused
+    }
+
+    private enum SaveError: Error {
+        case boom
+    }
+
+    private var wordSaveFailedAlert: AlertState<GLIFolderWordsFeature.Action.Alert> {
+        AlertState {
+            TextState("Couldn't save word")
+        } actions: {
+            ButtonState(role: .cancel) {
+                TextState("OK")
+            }
+        } message: {
+            TextState("Your draft is still here.")
+        }
+    }
+
     private func makeStore(
         languageCode: String = "es",
         initialState: GLIFolderWordsFeature.State? = nil,
         wordPairs: GLIWordPairsClient,
         languageFolders: GLILanguageFoldersClient? = nil,
         customFolders: GLICustomFoldersClient? = nil,
-        wordMeanings: GLIWordMeaningsClient? = nil
+        wordMeanings: GLIWordMeaningsClient? = nil,
+        preferences: GLIPreferencesClient = .inMemory(),
+        wordPairMembership: GLIWordPairMembershipClient? = nil
     ) -> TestStoreOf<GLIFolderWordsFeature> {
         let resolvedLanguageCode = languageCode
         let folderID = folderID
@@ -52,13 +74,29 @@ struct GLIFolderWordsFeatureTests {
             $0.languageDetector = GLILanguageDetectorClient(
                 detectSourceLanguage: { _ in "es" }
             )
+            $0.targetLanguageDetector = GLITargetLanguageDetectorClient(
+                detectTargetLanguage: { _ in nil }
+            )
             $0.wordMeanings = wordMeanings ?? GLIWordMeaningsClient(
                 fetch: { _ in [] },
                 replaceAll: { _, _ in },
                 firstMeanings: { _ in [:] },
                 fetchAll: { _ in [:] }
             )
+            $0.preferences = preferences
+            $0.wordPairMembership = wordPairMembership ?? stubMembership()
         }
+    }
+
+    private func stubMembership(
+        assignCustomFolder: @escaping @Sendable (UUID, UUID?, String?) async throws -> Void = { _, _, _ in }
+    ) -> GLIWordPairMembershipClient {
+        GLIWordPairMembershipClient(
+            assignCustomFolder: assignCustomFolder,
+            updateSource: { _, _ in throw UnusedClientError.unused },
+            updateCustomFolder: { _, _ in throw UnusedClientError.unused },
+            pruneEmptyLanguageFolders: {}
+        )
     }
 
     private func finishedChangesWordPairs(
@@ -185,6 +223,7 @@ struct GLIFolderWordsFeatureTests {
         await store.send(.onAppear)
         await store.receive(\.contentLoaded) {
             $0.customFolderName = "Travel"
+            $0.customFolderSourceLanguage = "es"
             $0.words = IdentifiedArray(uniqueElements: [pair])
             $0.hasCompletedInitialLoad = true
         }
@@ -204,6 +243,7 @@ struct GLIFolderWordsFeatureTests {
         await store.send(.onAppear)
         await store.receive(\.contentLoaded) {
             $0.customFolderName = "Travel"
+            $0.customFolderSourceLanguage = "es"
             $0.hasCompletedInitialLoad = true
         }
         await store.finish()
@@ -292,6 +332,7 @@ struct GLIFolderWordsFeatureTests {
         #expect(draft.wordPair.sourceLanguage == "es")
         #expect(draft.wordPair.targetLanguage == "es")
         #expect(draft.didManuallySetSource == true)
+        #expect(draft.defaultCustomFolderPrefillMode == .matchPendingSource)
     }
 
     @Test("addButtonTapped from Unsorted opens blank draft without forced source")
@@ -310,6 +351,7 @@ struct GLIFolderWordsFeatureTests {
         #expect(draft.wordPair.sourceLanguage == nil)
         #expect(draft.wordPair.targetLanguage == nil)
         #expect(draft.didManuallySetSource == false)
+        #expect(draft.defaultCustomFolderPrefillMode == .always)
     }
 
     @Test("delegate wordAdded persists via wordPairs.save then dismisses")
@@ -489,6 +531,7 @@ struct GLIFolderWordsFeatureTests {
         await store.send(.folderForm(.presented(.delegate(.saved))))
         await store.receive(\.customFolderRenamed) {
             $0.customFolderName = "Trips"
+            $0.customFolderSourceLanguage = "es"
         }
         await store.receive(\.folderForm.dismiss) {
             $0.folderForm = nil
@@ -591,5 +634,147 @@ struct GLIFolderWordsFeatureTests {
             await store.send(.deleteButtonTapped)
         }
         #expect(store.state.alert == nil)
+    }
+
+    @Test("addButtonTapped from custom folder locks source and selects that folder")
+    func addButtonFromCustomFolderLocksSource() async throws {
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                identity: .custom(folderID),
+                customFolderName: "Travel",
+                customFolderSourceLanguage: "es",
+                customFolderTargetLanguage: "en",
+                hasCompletedInitialLoad: true
+            ),
+            wordPairs: finishedChangesWordPairs()
+        )
+        store.exhaustivity = .off
+
+        await store.send(.addButtonTapped)
+
+        let draft = try #require(store.state.addWord)
+        #expect(draft.wordPair.word == "")
+        #expect(draft.wordPair.sourceLanguage == "es")
+        #expect(draft.wordPair.targetLanguage == "en")
+        #expect(draft.didManuallySetSource == true)
+        #expect(draft.selectedCustomFolderID == folderID)
+        #expect(draft.isSourceLocked == true)
+    }
+
+    @Test("wordAdded with selected custom folder assigns it and sets the sticky default")
+    func wordAddedAssignsSelectedCustomFolder() async {
+        let draft = GLIWordPair(
+            id: draftID,
+            word: "hola",
+            sourceLanguage: "es",
+            targetLanguage: "en"
+        )
+        let assigned = LockIsolated<(UUID, UUID?, String?)?>(nil)
+        let preferences = GLIPreferencesClient.inMemory()
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                id: folderID,
+                languageCode: "es",
+                addWord: GLIAddWordFeature.State(
+                    wordPair: draft,
+                    didManuallySetSource: true,
+                    selectedCustomFolderID: folderID
+                )
+            ),
+            wordPairs: finishedChangesWordPairs(),
+            preferences: preferences,
+            wordPairMembership: stubMembership(
+                assignCustomFolder: { wordID, folderID, target in
+                    assigned.setValue((wordID, folderID, target))
+                }
+            )
+        )
+
+        await store.send(.addWord(.presented(.delegate(.wordAdded))))
+        await store.receive(\.addWord.dismiss) {
+            $0.addWord = nil
+        }
+        await store.finish()
+
+        #expect(assigned.value?.0 == draftID)
+        #expect(assigned.value?.1 == folderID)
+        #expect(assigned.value?.2 == "en")
+        #expect(preferences.defaultCustomFolderID() == folderID)
+    }
+
+    @Test("wordAdded without a custom folder assigns nil and clears the sticky default")
+    func wordAddedClearsCustomFolderPreference() async {
+        let draft = GLIWordPair(
+            id: draftID,
+            word: "hola",
+            sourceLanguage: "es",
+            targetLanguage: "en"
+        )
+        let assigned = LockIsolated<(UUID, UUID?, String?)?>(nil)
+        let preferences = GLIPreferencesClient.inMemory(
+            initialDefaultCustomFolderID: folderID
+        )
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                id: folderID,
+                languageCode: "es",
+                addWord: GLIAddWordFeature.State(
+                    wordPair: draft,
+                    didManuallySetSource: true
+                )
+            ),
+            wordPairs: finishedChangesWordPairs(),
+            preferences: preferences,
+            wordPairMembership: stubMembership(
+                assignCustomFolder: { wordID, folderID, target in
+                    assigned.setValue((wordID, folderID, target))
+                }
+            )
+        )
+
+        await store.send(.addWord(.presented(.delegate(.wordAdded))))
+        await store.receive(\.addWord.dismiss) {
+            $0.addWord = nil
+        }
+        await store.finish()
+
+        #expect(assigned.value?.0 == draftID)
+        #expect(assigned.value?.1 == nil)
+        #expect(assigned.value?.2 == "en")
+        #expect(preferences.defaultCustomFolderID() == nil)
+    }
+
+    @Test("word save failure keeps the sheet and presents the draft-still-here alert")
+    func wordSaveFailureKeepsSheetAndPresentsAlert() async {
+        let draft = GLIWordPair(
+            id: draftID,
+            word: "hola",
+            sourceLanguage: "es",
+            targetLanguage: "en"
+        )
+        let store = makeStore(
+            initialState: GLIFolderWordsFeature.State(
+                id: folderID,
+                languageCode: "es",
+                addWord: GLIAddWordFeature.State(
+                    wordPair: draft,
+                    didManuallySetSource: true,
+                    isSaving: true
+                )
+            ),
+            wordPairs: finishedChangesWordPairs(save: { _ in throw SaveError.boom })
+        )
+
+        await withExpectedIssue {
+            await store.send(.addWord(.presented(.delegate(.wordAdded))))
+            await store.receive(\.wordSaveFailed) {
+                $0.addWord?.isSaving = false
+                $0.alert = wordSaveFailedAlert
+            }
+        }
+        await store.finish()
+
+        #expect(store.state.addWord != nil)
+        #expect(store.state.alert != nil)
     }
 }

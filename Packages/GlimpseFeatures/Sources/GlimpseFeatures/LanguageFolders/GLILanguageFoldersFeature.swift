@@ -76,6 +76,7 @@ public struct GLILanguageFoldersFeature {
         case addWord(PresentationAction<GLIAddWordFeature.Action>)
         case folderForm(PresentationAction<GLIFolderFormFeature.Action>)
         case alert(PresentationAction<Alert>)
+        case wordSaveFailed
 
         public enum Alert: Equatable {
             case confirmDeleteCustomFolder(GLICustomFolder.ID)
@@ -91,6 +92,8 @@ public struct GLILanguageFoldersFeature {
     @Dependency(\.wordPairs) var wordPairs
     @Dependency(\.customFolders) var customFolders
     @Dependency(\.wordMeanings) var wordMeanings
+    @Dependency(\.wordPairMembership) var wordPairMembership
+    @Dependency(\.preferences) var preferences
 
     public init() {}
 
@@ -128,7 +131,8 @@ public struct GLILanguageFoldersFeature {
 
             case .addButtonTapped:
                 state.addWord = GLIAddWordFeature.State(
-                    wordPair: GLIWordPair(word: "")
+                    wordPair: GLIWordPair(word: ""),
+                    defaultCustomFolderPrefillMode: .always
                 )
                 return .none
 
@@ -178,23 +182,32 @@ public struct GLILanguageFoldersFeature {
                 return .none
 
             case .addWord(.presented(.delegate(.wordAdded))):
-                guard let addWordState = state.addWord else {
+                guard let addWord = state.addWord else {
                     reportIssue("wordAdded delegate without presented child draft")
                     return .none
                 }
-                let pair = addWordState.wordPair
-                let meaning = GLIWordMeaning.captureMeaning(
-                    text: addWordState.meaningText,
-                    language: pair.targetLanguage
-                )
-                return .run { [wordPairs, wordMeanings] send in
+                let pair = addWord.pairForPersist
+                let meaning = addWord.captureMeaning
+                let selectedCustomFolderID = addWord.selectedCustomFolderID
+                return .run { [wordPairs, wordMeanings, preferences, wordPairMembership] send in
                     try await wordPairs.save(pair)
                     if let meaning {
                         try await wordMeanings.replaceAll(pair.id, [meaning])
                     }
+                    try await wordPairMembership.assignCustomFolder(
+                        pair.id,
+                        selectedCustomFolderID,
+                        pair.targetLanguage
+                    )
+                    if let selectedCustomFolderID {
+                        preferences.setDefaultCustomFolderID(selectedCustomFolderID)
+                    } else {
+                        preferences.clearDefaultCustomFolderID()
+                    }
                     await send(.addWord(.dismiss))
-                } catch: { error, _ in
+                } catch: { error, send in
                     reportIssue(error)
+                    await send(.wordSaveFailed)
                 }
 
             case .addWord:
@@ -237,6 +250,19 @@ public struct GLILanguageFoldersFeature {
                 } catch: { error, _ in
                     reportIssue(error)
                 }
+
+            case .wordSaveFailed:
+                state.addWord?.isSaving = false
+                state.alert = AlertState {
+                    TextState("Couldn't save word")
+                } actions: {
+                    ButtonState(role: .cancel) {
+                        TextState("OK")
+                    }
+                } message: {
+                    TextState("Your draft is still here.")
+                }
+                return .none
 
             case .alert:
                 return .none

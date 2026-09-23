@@ -27,6 +27,7 @@ struct GlimpseApp: App {
         $0.wordPairs = .live(actor: actor)
         $0.languageFolders = .live(container: modelContainer)
         $0.languageDetector = .live
+        $0.targetLanguageDetector = .live
         $0.wordMeanings = .live(actor: actor)
         $0.cardMutations = .live(actor: actor)
         $0.wordPairMembership = .live(actor: actor)

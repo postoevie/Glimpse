@@ -28,6 +28,8 @@ public struct GLIFolderWordsFeature {
     public struct LoadedContent: Equatable, Sendable {
         public var languageCode: String?
         public var customFolderName: String?
+        public var customFolderSourceLanguage: String?
+        public var customFolderTargetLanguage: String?
         public var words: [GLIWordPair]
         /// First (oldest) meaning text per word, for the row subtitle. Missing keys = no meanings.
         public var firstMeaningTexts: [GLIWordPair.ID: String]
@@ -35,11 +37,15 @@ public struct GLIFolderWordsFeature {
         public init(
             languageCode: String? = nil,
             customFolderName: String? = nil,
+            customFolderSourceLanguage: String? = nil,
+            customFolderTargetLanguage: String? = nil,
             words: [GLIWordPair] = [],
             firstMeaningTexts: [GLIWordPair.ID: String] = [:]
         ) {
             self.languageCode = languageCode
             self.customFolderName = customFolderName
+            self.customFolderSourceLanguage = customFolderSourceLanguage
+            self.customFolderTargetLanguage = customFolderTargetLanguage
             self.words = words
             self.firstMeaningTexts = firstMeaningTexts
         }
@@ -60,6 +66,10 @@ public struct GLIFolderWordsFeature {
         public var languageCode: String?
         /// Resolved for `.custom` identity after load; drives navigation title.
         public var customFolderName: String?
+        /// Filled from load when still nil. Add source lock for custom folders.
+        public var customFolderSourceLanguage: String?
+        /// Filled from load when still nil. Add target prefill for custom folders.
+        public var customFolderTargetLanguage: String?
         /// `false` until the first fetch result (success or failure); stays `true` across observation refreshes.
         public var hasCompletedInitialLoad = false
         @Presents public var addWord: GLIAddWordFeature.State?
@@ -74,6 +84,8 @@ public struct GLIFolderWordsFeature {
             firstMeaningTexts: [GLIWordPair.ID: String] = [:],
             languageCode: String? = nil,
             customFolderName: String? = nil,
+            customFolderSourceLanguage: String? = nil,
+            customFolderTargetLanguage: String? = nil,
             hasCompletedInitialLoad: Bool = false,
             addWord: GLIAddWordFeature.State? = nil,
             folderForm: GLIFolderFormFeature.State? = nil,
@@ -84,6 +96,8 @@ public struct GLIFolderWordsFeature {
             self.firstMeaningTexts = firstMeaningTexts
             self.languageCode = languageCode
             self.customFolderName = customFolderName
+            self.customFolderSourceLanguage = customFolderSourceLanguage
+            self.customFolderTargetLanguage = customFolderTargetLanguage
             self.hasCompletedInitialLoad = hasCompletedInitialLoad
             self.addWord = addWord
             self.folderForm = folderForm
@@ -113,6 +127,7 @@ public struct GLIFolderWordsFeature {
         case onAppear
         case contentLoaded(Result<LoadedContent, Error>)
         case addButtonTapped
+        case presentAddWord(GLIAddWordFeature.State)
         case renameButtonTapped
         case deleteButtonTapped
         /// Bubbles to `GLIAppFeature`, which appends `.wordCard` onto the nav path.
@@ -121,6 +136,7 @@ public struct GLIFolderWordsFeature {
         case addWord(PresentationAction<GLIAddWordFeature.Action>)
         case folderForm(PresentationAction<GLIFolderFormFeature.Action>)
         case alert(PresentationAction<Alert>)
+        case wordSaveFailed
         case delegate(Delegate)
 
         public enum Alert: Equatable {
@@ -140,6 +156,8 @@ public struct GLIFolderWordsFeature {
     @Dependency(\.languageFolders) var languageFolders
     @Dependency(\.customFolders) var customFolders
     @Dependency(\.wordMeanings) var wordMeanings
+    @Dependency(\.wordPairMembership) var wordPairMembership
+    @Dependency(\.preferences) var preferences
 
     public init() {}
 
@@ -175,6 +193,12 @@ public struct GLIFolderWordsFeature {
             case let .contentLoaded(.success(content)):
                 state.languageCode = content.languageCode
                 state.customFolderName = content.customFolderName
+                if state.customFolderSourceLanguage == nil {
+                    state.customFolderSourceLanguage = content.customFolderSourceLanguage
+                }
+                if state.customFolderTargetLanguage == nil {
+                    state.customFolderTargetLanguage = content.customFolderTargetLanguage
+                }
                 state.words = IdentifiedArray(uniqueElements: content.words)
                 state.firstMeaningTexts = content.firstMeaningTexts
                 state.hasCompletedInitialLoad = true
@@ -187,22 +211,54 @@ public struct GLIFolderWordsFeature {
                 return .none
 
             case .addButtonTapped:
-                // Prefill only for concrete language folders; Unsorted and custom stay blank (T2 owns custom filing).
-                if let code = state.languageCode,
-                   code != GLILanguageFolder.unsortedCode {
-                    state.addWord = GLIAddWordFeature.State(
-                        wordPair: GLIWordPair(
-                            word: "",
-                            sourceLanguage: code,
-                            targetLanguage: code
-                        ),
-                        didManuallySetSource: true
-                    )
-                } else {
-                    state.addWord = GLIAddWordFeature.State(
-                        wordPair: GLIWordPair(word: "")
-                    )
+                switch state.identity {
+                case let .custom(id):
+                    if let source = state.customFolderSourceLanguage {
+                        let target = state.customFolderTargetLanguage ?? source
+                        state.addWord = Self.addWordState(
+                            customFolderID: id,
+                            sourceLanguage: source,
+                            targetLanguage: target
+                        )
+                        return .none
+                    }
+                    return .run { [customFolders] send in
+                        do {
+                            guard let folder = try await customFolders.fetchCustomFolder(id) else {
+                                reportIssue("addButtonTapped: custom folder missing for id \(id)")
+                                return
+                            }
+                            await send(.presentAddWord(Self.addWordState(for: folder)))
+                        } catch {
+                            reportIssue(error)
+                        }
+                    }
+
+                case .language:
+                    if let code = state.languageCode,
+                       code != GLILanguageFolder.unsortedCode {
+                        state.addWord = GLIAddWordFeature.State(
+                            wordPair: GLIWordPair(
+                                word: "",
+                                sourceLanguage: code,
+                                targetLanguage: code
+                            ),
+                            didManuallySetSource: true,
+                            selectedCustomFolderID: nil,
+                            defaultCustomFolderPrefillMode: .matchPendingSource
+                        )
+                    } else {
+                        state.addWord = GLIAddWordFeature.State(
+                            wordPair: GLIWordPair(word: ""),
+                            selectedCustomFolderID: nil,
+                            defaultCustomFolderPrefillMode: .always
+                        )
+                    }
+                    return .none
                 }
+
+            case let .presentAddWord(addState):
+                state.addWord = addState
                 return .none
 
             case .renameButtonTapped:
@@ -248,26 +304,37 @@ public struct GLIFolderWordsFeature {
 
             case let .customFolderRenamed(folder):
                 state.customFolderName = folder.name
+                state.customFolderSourceLanguage = folder.sourceLanguage
+                state.customFolderTargetLanguage = folder.targetLanguage
                 return .none
 
             case .addWord(.presented(.delegate(.wordAdded))):
-                guard let addWordState = state.addWord else {
+                guard let addWord = state.addWord else {
                     reportIssue("wordAdded delegate without presented child draft")
                     return .none
                 }
-                let pair = addWordState.wordPair
-                let meaning = GLIWordMeaning.captureMeaning(
-                    text: addWordState.meaningText,
-                    language: pair.targetLanguage
-                )
-                return .run { [wordPairs, wordMeanings] send in
+                let pair = addWord.pairForPersist
+                let meaning = addWord.captureMeaning
+                let selectedCustomFolderID = addWord.selectedCustomFolderID
+                return .run { [wordPairs, wordMeanings, preferences, wordPairMembership] send in
                     try await wordPairs.save(pair)
                     if let meaning {
                         try await wordMeanings.replaceAll(pair.id, [meaning])
                     }
+                    try await wordPairMembership.assignCustomFolder(
+                        pair.id,
+                        selectedCustomFolderID,
+                        pair.targetLanguage
+                    )
+                    if let selectedCustomFolderID {
+                        preferences.setDefaultCustomFolderID(selectedCustomFolderID)
+                    } else {
+                        preferences.clearDefaultCustomFolderID()
+                    }
                     await send(.addWord(.dismiss))
-                } catch: { error, _ in
+                } catch: { error, send in
                     reportIssue(error)
+                    await send(.wordSaveFailed)
                 }
 
             case .addWord:
@@ -310,6 +377,19 @@ public struct GLIFolderWordsFeature {
                     reportIssue(error)
                 }
 
+            case .wordSaveFailed:
+                state.addWord?.isSaving = false
+                state.alert = AlertState {
+                    TextState("Couldn't save word")
+                } actions: {
+                    ButtonState(role: .cancel) {
+                        TextState("OK")
+                    }
+                } message: {
+                    TextState("Your draft is still here.")
+                }
+                return .none
+
             case .alert:
                 return .none
 
@@ -324,6 +404,30 @@ public struct GLIFolderWordsFeature {
             GLIFolderFormFeature()
         }
         .ifLet(\.$alert, action: \.alert)
+    }
+
+    private static func addWordState(for folder: GLICustomFolder) -> GLIAddWordFeature.State {
+        addWordState(
+            customFolderID: folder.id,
+            sourceLanguage: folder.sourceLanguage,
+            targetLanguage: folder.targetLanguage ?? folder.sourceLanguage
+        )
+    }
+
+    private static func addWordState(
+        customFolderID: UUID,
+        sourceLanguage: String,
+        targetLanguage: String
+    ) -> GLIAddWordFeature.State {
+        GLIAddWordFeature.State(
+            wordPair: GLIWordPair(
+                word: "",
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage
+            ),
+            didManuallySetSource: true,
+            selectedCustomFolderID: customFolderID
+        )
     }
 
     private static func loadContent(
@@ -354,6 +458,8 @@ public struct GLIFolderWordsFeature {
             let firstMeaningTexts = try await wordMeanings.firstMeanings(words.map(\.id))
             return LoadedContent(
                 customFolderName: folder.name,
+                customFolderSourceLanguage: folder.sourceLanguage,
+                customFolderTargetLanguage: folder.targetLanguage,
                 words: words,
                 firstMeaningTexts: firstMeaningTexts
             )

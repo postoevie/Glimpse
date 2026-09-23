@@ -20,13 +20,11 @@ public struct GLIFolderWordsView: View {
                 } description: {
                     Text("Words you save in this folder will appear here.")
                 } actions: {
-                    if !store.identity.isCustom {
-                        Button("Add", systemImage: "plus") {
-                            store.send(.addButtonTapped)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .frame(minWidth: 44, minHeight: 44)
+                    Button("Add", systemImage: "plus") {
+                        store.send(.addButtonTapped)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .frame(minWidth: 44, minHeight: 44)
                 }
             } else {
                 List {
@@ -59,16 +57,14 @@ public struct GLIFolderWordsView: View {
         .navigationTitle(folderTitle)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            if !store.identity.isCustom {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        store.send(.addButtonTapped)
-                    } label: {
-                        Label("Add", systemImage: "plus")
-                    }
-                    .frame(minWidth: 44, minHeight: 44)
-                    .accessibilityLabel("Add")
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    store.send(.addButtonTapped)
+                } label: {
+                    Label("Add", systemImage: "plus")
                 }
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Add")
             }
             if store.identity.isCustom {
                 ToolbarItem(placement: .topBarTrailing) {
